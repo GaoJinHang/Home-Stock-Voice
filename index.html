@@ -879,7 +879,20 @@
     }
     if (/今天/.test(raw)) return todayISO();
 
-    let m = raw.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/);
+    let m = raw.match(/(\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年)\s*后/);
+    if (m) {
+      const amount = parseChineseNumber(m[1]);
+      if (amount !== null && !Number.isNaN(amount)) {
+        const d = new Date(today);
+        if (m[2] === "天" || m[2] === "日") d.setDate(d.getDate() + amount);
+        else if (m[2] === "周" || m[2] === "星期") d.setDate(d.getDate() + amount * 7);
+        else if (m[2] === "个月" || m[2] === "月") d.setMonth(d.getMonth() + amount);
+        else if (m[2] === "年") d.setFullYear(d.getFullYear() + amount);
+        return toDateInputValue(d);
+      }
+    }
+
+    m = raw.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/);
     if (m) {
       const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
       return Number.isNaN(d.getTime()) ? "" : toDateInputValue(d);
@@ -900,11 +913,17 @@
     return "";
   }
 
-  function cleanItemName(text) {
+  function stripDateText(text) {
     return String(text || "")
+      .replace(/(?:今天|明天|后天)\s*(?:过期|到期)?/g, "")
+      .replace(/(?:\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(?:天|日|周|星期|个月|月|年)\s*后\s*(?:过期|到期)?/g, "")
       .replace(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/g, "")
       .replace(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/g, "")
-      .replace(/(\d{1,2})[\/\-](\d{1,2})/g, "")
+      .replace(/(\d{1,2})[\/\-](\d{1,2})/g, "");
+  }
+
+  function cleanItemName(text) {
+    return stripDateText(text)
       .replace(/加入购物清单|加入清单|加到购物清单|加购物清单/g, "")
       .replace(/过期|到期/g, "")
       .replace(/买了|购买了|买|加了|增加|新增|添加|加入|入库|补了|补/g, "")
@@ -922,19 +941,23 @@
     if (!raw) return null;
 
     const expiryDate = parseDateFromText(raw);
-    const qtyMatch = raw.match(/(\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|毫升|片|粒|只|条|件|箱)?/);
+    const stockText = stripDateText(raw);
+    const qtyMatch = stockText.match(/(\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|毫升|片|粒|只|条|件|箱)?/);
     let quantity = qtyMatch ? parseChineseNumber(qtyMatch[1]) : null;
     let unit = qtyMatch?.[2] || "";
+
+    const hasAddIntent = /买了|购买了|买|加了|加|增加|新增|添加|加入|入库|补了|补/.test(raw);
+    const hasReduceIntent = /减|减少|吃了|喝了|用了|用掉|消耗|拿了/.test(raw);
 
     let action = "add";
     if (/加入购物清单|加入清单|加到购物清单|加购物清单/.test(raw)) action = "addToShopping";
     else if (/用完了|用完|没了|没有了/.test(raw)) { action = "usedUp"; quantity = 0; }
     else if (/还剩|剩余|剩/.test(raw)) action = "setRemaining";
+    else if (hasReduceIntent) action = "reduce";
+    else if (hasAddIntent) action = "add";
     else if (/过期|到期/.test(raw)) action = "setExpiry";
-    else if (/减|减少|吃了|喝了|用了|用掉|消耗|拿了/.test(raw)) action = "reduce";
-    else if (/买了|购买了|买|加|增加|新增|添加|加入|入库|补/.test(raw)) action = "add";
 
-    let itemName = cleanItemName(raw);
+    let itemName = cleanItemName(stockText || raw);
 
     if (!itemName && qtyMatch) {
       const parts = raw.split(qtyMatch[0]);
@@ -1975,12 +1998,34 @@
   }
 
   function initSpeech() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition;
+    const chromeSpeechRecognition = window.webkitSpeechRecognition;
     const voiceBtn = $("#voiceBtn");
+    const isChromium = /Chrome|CriOS|Chromium|Edg|OPR/i.test(navigator.userAgent || "");
+    let lastFallbackAt = 0;
 
-    if (!SpeechRecognition) {
-      $("#speechStatus").textContent = "浏览器不支持语音";
-      voiceBtn.style.display = "none";
+    const openSystemVoiceInput = event => {
+      event?.preventDefault();
+      const input = $("#quickText");
+      input.focus();
+      try {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      } catch (err) {}
+      voiceBtn.classList.remove("pressing");
+      $("#speechStatus").textContent = "系统输入法语音";
+      const now = Date.now();
+      if (now - lastFallbackAt > 800) {
+        toast("请使用输入法麦克风语音输入");
+        lastFallbackAt = now;
+      }
+    };
+
+    if (!SpeechRecognition || (chromeSpeechRecognition && isChromium)) {
+      $("#speechStatus").textContent = chromeSpeechRecognition && isChromium ? "已避开 Chrome 语音" : "系统输入法语音";
+      voiceBtn.textContent = "语音输入";
+      voiceBtn.addEventListener("click", openSystemVoiceInput);
+      voiceBtn.addEventListener("touchstart", openSystemVoiceInput, { passive: false });
       return;
     }
 
@@ -1997,7 +2042,7 @@
     };
     recognition.onerror = () => {
       voiceBtn.classList.remove("pressing");
-      toast("语音识别失败，可改用文字输入");
+      openSystemVoiceInput();
     };
     recognition.onend = () => voiceBtn.classList.remove("pressing");
 
@@ -2007,7 +2052,7 @@
         voiceBtn.classList.add("pressing");
         recognition.start();
       } catch (err) {
-        voiceBtn.classList.remove("pressing");
+        openSystemVoiceInput();
       }
     };
 
