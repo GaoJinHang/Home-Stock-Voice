@@ -594,9 +594,45 @@
     undo: "撤销"
   };
 
+  const VOICE_CONFIG = {
+    asrEndpoint: "",
+    maxDurationMs: 15000
+  };
+
+  const CATEGORY_KEYWORDS = {
+    "食品": [
+      "矿泉水", "火腿肠", "加多宝", "王老吉", "牛奶", "酸奶", "鸡蛋", "面包", "蛋糕", "水果", "苹果", "香蕉", "橙子",
+      "蔬菜", "番茄", "西红柿", "土豆", "饮料", "可乐", "饼干", "零食", "豆腐", "猪肉", "牛肉", "鸡肉", "肉", "鱼", "虾"
+    ],
+    "冷冻": ["冷冻肉", "冷冻鱼", "冷冻虾", "冻饺子", "冰淇淋", "速冻", "冷冻", "饺子", "汤圆"],
+    "米面粮油": [
+      "方便面", "玉米面", "食用油", "花生油", "菜籽油", "橄榄油", "粮油", "大米", "面粉", "面条", "挂面", "粉丝", "米"
+    ],
+    "调味品": [
+      "火锅底料", "辣椒酱", "豆瓣酱", "番茄酱", "胡椒粉", "白糖", "酱油", "生抽", "老抽", "料酒", "蚝油", "鸡精", "味精", "辣椒", "调料", "盐", "糖", "醋"
+    ],
+    "洗护": [
+      "洗发水", "护发素", "沐浴露", "洗面奶", "洗手液", "护手霜", "身体乳", "卫生巾", "纸尿裤", "香皂", "牙膏", "牙刷"
+    ],
+    "清洁": [
+      "洗衣液", "洗衣粉", "洗洁精", "消毒液", "洁厕灵", "清洁剂", "垃圾袋", "洗碗布", "除菌", "抹布", "拖把", "扫把", "海绵"
+    ],
+    "纸品": ["厨房纸", "保鲜膜", "保鲜袋", "纸巾", "抽纸", "卷纸", "厕纸", "湿巾", "纸杯", "锡纸"],
+    "药品": ["感冒药", "退烧药", "止痛药", "创可贴", "体温计", "维生素", "碘伏", "酒精", "棉签", "口罩", "胶囊", "药", "片"],
+    "宠物": ["宠物罐头", "猫罐头", "狗罐头", "牵引绳", "猫粮", "狗粮", "猫砂", "宠物", "冻干"],
+    "工具/电池": ["加湿器", "插线板", "螺丝刀", "充电器", "数据线", "电池", "灯泡", "胶带", "剪刀", "工具"]
+  };
+
+  const CATEGORY_RULES = Object.entries(CATEGORY_KEYWORDS)
+    .flatMap(([category, keywords]) => keywords.map(keyword => ({ category, keyword })))
+    .sort((a, b) => b.keyword.length - a.keyword.length);
+
   let state = loadState();
   let pendingParse = null;
-  let recognition = null;
+  let mediaRecorder = null;
+  let voiceStream = null;
+  let voiceChunks = [];
+  let voiceStopTimer = null;
   let expandedItems = new Set();
 
   const $ = (selector) => document.querySelector(selector);
@@ -922,18 +958,171 @@
       .replace(/(\d{1,2})[\/\-](\d{1,2})/g, "");
   }
 
-  function cleanItemName(text) {
-    return stripDateText(text)
+  function inferCategory(itemName) {
+    const name = normalizeName(itemName);
+    if (!name) return "其他";
+    const hit = CATEGORY_RULES.find(rule => name.includes(normalizeName(rule.keyword)));
+    return hit?.category || "其他";
+  }
+
+  const UNIT_PATTERN = "毫升|公斤|千克|克|盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|片|粒|只|条|件|箱|杯|板|颗|根|双|套|组";
+  const ACTION_RULES = [
+    { action: "addToShopping", words: ["加入购物清单", "加入清单", "加到购物清单", "加购物清单"] },
+    { action: "usedUp", words: ["用完了", "没有了", "用完", "没了"] },
+    { action: "setRemaining", words: ["还剩", "剩余", "剩"] },
+    { action: "reduce", words: ["吃了", "喝了", "用了", "用掉", "拿了", "减少", "减了", "消耗", "吃", "喝", "用", "拿", "减"] },
+    { action: "add", words: ["购买了", "买了", "加了", "增加", "新增", "添加", "加入", "入库", "补了", "购买", "买", "加", "补"] },
+    { action: "setExpiry", words: ["过期", "到期"] }
+  ];
+
+  const ALL_ACTION_WORDS = ACTION_RULES.flatMap(rule => rule.words)
+    .sort((a, b) => b.length - a.length);
+
+  function extractQuantity(text) {
+    const raw = String(text || "");
+    const re = new RegExp(`(\\d+(?:\\.\\d+)?|[零一二两三四五六七八九十]+)\\s*(${UNIT_PATTERN})?`);
+    const m = raw.match(re);
+    if (!m) return null;
+    const quantity = parseChineseNumber(m[1]);
+    if (quantity === null || Number.isNaN(quantity)) return null;
+    return {
+      text: m[0],
+      numberText: m[1],
+      quantity,
+      unit: m[2] || "",
+      start: m.index,
+      end: m.index + m[0].length
+    };
+  }
+
+  function findActionMatch(text, qtyMatch = null) {
+    const raw = String(text || "");
+    const candidates = [];
+
+    for (const rule of ACTION_RULES) {
+      for (const word of rule.words) {
+        let fromIndex = 0;
+        while (fromIndex <= raw.length) {
+          const index = raw.indexOf(word, fromIndex);
+          if (index === -1) break;
+          const candidate = {
+            action: rule.action,
+            word,
+            start: index,
+            end: index + word.length
+          };
+
+          if (word.length === 1 && qtyMatch) {
+            const adjacentToQuantity = (
+              candidate.end <= qtyMatch.start && /^\s*$/.test(raw.slice(candidate.end, qtyMatch.start))
+            ) || (
+              qtyMatch.end <= candidate.start && /^\s*$/.test(raw.slice(qtyMatch.end, candidate.start))
+            );
+            if (candidate.start > 0 && !adjacentToQuantity) {
+              fromIndex = index + Math.max(word.length, 1);
+              continue;
+            }
+
+            const beforeQuantity = raw.slice(0, qtyMatch.start).replace(/[，。,.！!？?；;：:\s]/g, "");
+            const singleWordIsKnownNamePrefix = candidate.start === 0 && CATEGORY_RULES.some(rule => {
+              const keyword = normalizeName(rule.keyword);
+              return keyword.startsWith(normalizeName(word)) && normalizeName(beforeQuantity) === keyword;
+            });
+            if (singleWordIsKnownNamePrefix) {
+              fromIndex = index + Math.max(word.length, 1);
+              continue;
+            }
+          }
+
+          let score = word.length * 2;
+          if (qtyMatch) {
+            const distance = Math.min(
+              Math.abs(candidate.end - qtyMatch.start),
+              Math.abs(candidate.start - qtyMatch.end)
+            );
+            score -= distance;
+            if (candidate.end <= qtyMatch.start) score += 20;
+            if (candidate.start >= qtyMatch.end) score += 12;
+            if (candidate.end === qtyMatch.start || candidate.start === qtyMatch.end) score += 8;
+          }
+          if (candidate.start > 0) score += 1;
+          candidate.score = score;
+          candidates.push(candidate);
+          fromIndex = index + Math.max(word.length, 1);
+        }
+      }
+    }
+
+    if (!candidates.length) return null;
+    return candidates.sort((a, b) => b.score - a.score || b.word.length - a.word.length || a.start - b.start)[0];
+  }
+
+  function cleanStructuredSegment(text) {
+    let value = String(text || "")
       .replace(/加入购物清单|加入清单|加到购物清单|加购物清单/g, "")
       .replace(/过期|到期/g, "")
-      .replace(/买了|购买了|买|加了|增加|新增|添加|加入|入库|补了|补/g, "")
-      .replace(/吃了|喝了|用了|用掉|消耗|拿了|减少|减了|减/g, "")
-      .replace(/还剩|剩余|剩|用完了|用完|没了|没有了/g, "")
-      .replace(/\d+(?:\.\d+)?/g, "")
-      .replace(/[零一二两三四五六七八九十]+/g, "")
-      .replace(/盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|毫升|片|粒|只|条|件|箱|袋/g, "")
-      .replace(/[，。,.！!？?\s]/g, "")
+      .replace(/[，。,.！!？?；;：:\s]/g, "")
       .trim();
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const word of ALL_ACTION_WORDS) {
+        if (word.length <= 1) continue;
+        if (value.startsWith(word)) {
+          value = value.slice(word.length);
+          changed = true;
+        }
+        if (value.endsWith(word)) {
+          value = value.slice(0, -word.length);
+          changed = true;
+        }
+      }
+    }
+    return value.trim();
+  }
+
+  function cleanItemName(text) {
+    return cleanStructuredSegment(stripDateText(text)
+      .replace(new RegExp(`(\\d+(?:\\.\\d+)?|[零一二两三四五六七八九十]+)\\s*(?:${UNIT_PATTERN})?`, "g"), ""));
+  }
+
+  function pushNameCandidate(candidates, text) {
+    const cleaned = cleanStructuredSegment(text);
+    if (cleaned && !candidates.includes(cleaned)) candidates.push(cleaned);
+  }
+
+  function extractItemNameFromStructure(text, actionMatch, qtyMatch) {
+    const raw = String(text || "");
+    const candidates = [];
+
+    if (actionMatch && qtyMatch) {
+      if (actionMatch.end <= qtyMatch.start) {
+        pushNameCandidate(candidates, raw.slice(0, actionMatch.start));
+        pushNameCandidate(candidates, raw.slice(actionMatch.end, qtyMatch.start));
+        pushNameCandidate(candidates, raw.slice(qtyMatch.end));
+      } else if (qtyMatch.end <= actionMatch.start) {
+        pushNameCandidate(candidates, raw.slice(qtyMatch.end, actionMatch.start));
+        pushNameCandidate(candidates, raw.slice(0, qtyMatch.start));
+        pushNameCandidate(candidates, raw.slice(actionMatch.end));
+      } else {
+        pushNameCandidate(candidates, raw.slice(0, Math.min(actionMatch.start, qtyMatch.start)));
+        pushNameCandidate(candidates, raw.slice(Math.max(actionMatch.end, qtyMatch.end)));
+      }
+    }
+
+    if (qtyMatch) {
+      pushNameCandidate(candidates, raw.slice(0, qtyMatch.start));
+      pushNameCandidate(candidates, raw.slice(qtyMatch.end));
+    }
+
+    if (actionMatch) {
+      pushNameCandidate(candidates, raw.slice(0, actionMatch.start));
+      pushNameCandidate(candidates, raw.slice(actionMatch.end));
+    }
+
+    pushNameCandidate(candidates, cleanItemName(raw));
+    return candidates[0] || "";
   }
 
   function parseQuickInput(rawInput) {
@@ -942,34 +1131,26 @@
 
     const expiryDate = parseDateFromText(raw);
     const stockText = stripDateText(raw);
-    const qtyMatch = stockText.match(/(\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|毫升|片|粒|只|条|件|箱)?/);
-    let quantity = qtyMatch ? parseChineseNumber(qtyMatch[1]) : null;
-    let unit = qtyMatch?.[2] || "";
+    const qtyMatch = extractQuantity(stockText);
+    const actionMatch = findActionMatch(stockText, qtyMatch);
 
-    const hasAddIntent = /买了|购买了|买|加了|加|增加|新增|添加|加入|入库|补了|补/.test(raw);
-    const hasReduceIntent = /减|减少|吃了|喝了|用了|用掉|消耗|拿了/.test(raw);
+    let quantity = qtyMatch ? qtyMatch.quantity : null;
+    let unit = qtyMatch?.unit || "";
 
     let action = "add";
     if (/加入购物清单|加入清单|加到购物清单|加购物清单/.test(raw)) action = "addToShopping";
     else if (/用完了|用完|没了|没有了/.test(raw)) { action = "usedUp"; quantity = 0; }
-    else if (/还剩|剩余|剩/.test(raw)) action = "setRemaining";
-    else if (hasReduceIntent) action = "reduce";
-    else if (hasAddIntent) action = "add";
-    else if (/过期|到期/.test(raw)) action = "setExpiry";
+    else if (actionMatch && ["add", "reduce", "setRemaining"].includes(actionMatch.action)) action = actionMatch.action;
+    else if (/过期|到期/.test(raw) || actionMatch?.action === "setExpiry") action = "setExpiry";
 
-    let itemName = cleanItemName(stockText || raw);
-
-    if (!itemName && qtyMatch) {
-      const parts = raw.split(qtyMatch[0]);
-      itemName = cleanItemName(parts[1] || parts[0] || "");
-    }
-
+    let itemName = extractItemNameFromStructure(stockText, actionMatch, qtyMatch);
     if (!itemName) itemName = cleanItemName(raw);
 
-    if ((action === "add" || action === "reduce" || action === "setRemaining") && (quantity === null || Number.isNaN(quantity))) {
+    if ((action === "add" || action === "reduce" || action === "setRemaining" || action === "addToShopping") && (quantity === null || Number.isNaN(quantity))) {
       quantity = 1;
     }
 
+    const category = inferCategory(itemName);
     const candidates = findItemCandidates(itemName);
     const exactItem = candidates.exact;
     if (!unit && exactItem?.unit) unit = exactItem.unit;
@@ -982,6 +1163,7 @@
       quantity,
       unit,
       expiryDate,
+      category,
       itemId: exactItem?.id || "",
       similarItemIds: candidates.similar.map(item => item.id),
       confidence: exactItem ? "exact" : candidates.similar.length ? "similar" : "new"
@@ -1145,7 +1327,7 @@
       userId: state.userId,
       name: fields.name.trim(),
       aliases: String(fields.aliases || "").split(/[,，]/).map(s => s.trim()).filter(Boolean),
-      category: fields.category || "其他",
+      category: fields.category || inferCategory(fields.name) || "其他",
       brand: fields.brand || "",
       spec: fields.spec || "",
       unit: fields.unit || "",
@@ -1296,7 +1478,7 @@
       item = createItemFromFields({
         name,
         aliases: "",
-        category: $("#confirmNewCategory")?.value || "其他",
+        category: $("#confirmNewCategory")?.value || parsed.category || inferCategory(name) || "其他",
         brand: "",
         spec: "",
         unit: $("#confirmUnit")?.value || parsed.unit || "",
@@ -1376,7 +1558,7 @@
 
           ${(!exactItem && !similar.length) ? `
           <label>分类
-            <select id="confirmNewCategory">${CATEGORIES.map(c => `<option ${c === "其他" ? "selected" : ""}>${c}</option>`).join("")}</select>
+            <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
           </label>` : ""}
 
           ${needsQuantity ? `<label>数量<input id="confirmQty" type="number" step="0.01" min="0" value="${escapeHtml(parsed.quantity ?? 1)}"></label>` : ""}
@@ -1917,7 +2099,7 @@
       item = createItemFromFields({
         name: row.itemName,
         aliases: "",
-        category: "其他",
+        category: inferCategory(row.itemName) || "其他",
         brand: "",
         spec: "",
         unit: row.unit || "",
@@ -1998,14 +2180,10 @@
   }
 
   function initSpeech() {
-    const SpeechRecognition = window.SpeechRecognition;
-    const chromeSpeechRecognition = window.webkitSpeechRecognition;
     const voiceBtn = $("#voiceBtn");
-    const isChromium = /Chrome|CriOS|Chromium|Edg|OPR/i.test(navigator.userAgent || "");
     let lastFallbackAt = 0;
 
-    const openSystemVoiceInput = event => {
-      event?.preventDefault();
+    const fallbackToKeyboardVoice = message => {
       const input = $("#quickText");
       input.focus();
       try {
@@ -2013,60 +2191,131 @@
         input.setSelectionRange(len, len);
       } catch (err) {}
       voiceBtn.classList.remove("pressing");
-      $("#speechStatus").textContent = "系统输入法语音";
+      $("#speechStatus").textContent = "输入法语音";
       const now = Date.now();
       if (now - lastFallbackAt > 800) {
-        toast("请使用输入法麦克风语音输入");
+        toast(message || "未配置语音识别服务，可暂用输入法麦克风输入");
         lastFallbackAt = now;
       }
     };
 
-    if (!SpeechRecognition || (chromeSpeechRecognition && isChromium)) {
-      $("#speechStatus").textContent = chromeSpeechRecognition && isChromium ? "已避开 Chrome 语音" : "系统输入法语音";
-      voiceBtn.textContent = "语音输入";
-      voiceBtn.addEventListener("click", openSystemVoiceInput);
-      voiceBtn.addEventListener("touchstart", openSystemVoiceInput, { passive: false });
-      return;
-    }
-
-    $("#speechStatus").textContent = "支持语音";
-    recognition = new SpeechRecognition();
-    recognition.lang = "zh-CN";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onresult = event => {
-      const text = Array.from(event.results).map(result => result[0]?.transcript || "").join("");
-      if (text) $("#quickText").value = text;
-      voiceBtn.classList.remove("pressing");
-    };
-    recognition.onerror = () => {
-      voiceBtn.classList.remove("pressing");
-      openSystemVoiceInput();
-    };
-    recognition.onend = () => voiceBtn.classList.remove("pressing");
-
-    const start = event => {
-      event.preventDefault();
-      try {
-        voiceBtn.classList.add("pressing");
-        recognition.start();
-      } catch (err) {
-        openSystemVoiceInput();
+    const handleRecognizedText = text => {
+      const value = String(text || "").trim();
+      if (!value) return;
+      $("#quickText").value = value;
+      const parsed = parseQuickInput(value);
+      if (parsed) {
+        pendingParse = parsed;
+        renderConfirm(parsed);
       }
     };
 
-    const stop = event => {
-      event.preventDefault();
-      try { recognition.stop(); } catch (err) {}
-      voiceBtn.classList.remove("pressing");
+    if (!VOICE_CONFIG.asrEndpoint) {
+      $("#speechStatus").textContent = "需配置 ASR";
+      voiceBtn.textContent = "按住说话";
+      const fallback = event => {
+        event?.preventDefault();
+        fallbackToKeyboardVoice("未配置语音识别服务，可暂用输入法麦克风输入");
+      };
+      voiceBtn.addEventListener("click", fallback);
+      voiceBtn.addEventListener("touchstart", fallback, { passive: false });
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      $("#speechStatus").textContent = "输入法语音";
+      voiceBtn.textContent = "语音输入";
+      const fallback = event => {
+        event?.preventDefault();
+        fallbackToKeyboardVoice("当前浏览器不支持录音，可使用输入法麦克风输入");
+      };
+      voiceBtn.addEventListener("click", fallback);
+      voiceBtn.addEventListener("touchstart", fallback, { passive: false });
+      return;
+    }
+
+    $("#speechStatus").textContent = "按住说话";
+    voiceBtn.textContent = "按住说话";
+
+    const stopTracks = () => {
+      if (voiceStream) {
+        voiceStream.getTracks().forEach(track => track.stop());
+        voiceStream = null;
+      }
     };
 
-    voiceBtn.addEventListener("mousedown", start);
-    voiceBtn.addEventListener("touchstart", start, { passive: false });
-    voiceBtn.addEventListener("mouseup", stop);
-    voiceBtn.addEventListener("mouseleave", stop);
-    voiceBtn.addEventListener("touchend", stop, { passive: false });
+    const uploadRecording = async blob => {
+      if (!blob || blob.size <= 0) return;
+      const formData = new FormData();
+      formData.append("audio", blob, `voice-${Date.now()}.webm`);
+      formData.append("lang", "zh-CN");
+
+      $("#speechStatus").textContent = "识别中";
+      const response = await fetch(VOICE_CONFIG.asrEndpoint, { method: "POST", body: formData });
+      if (!response.ok) throw new Error(`语音识别失败：${response.status}`);
+
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+      const text = typeof payload === "string"
+        ? payload
+        : (payload.text || payload.transcript || payload.result || payload.data?.text || "");
+      handleRecognizedText(text);
+      $("#speechStatus").textContent = "按住说话";
+    };
+
+    const stopRecording = event => {
+      event?.preventDefault();
+      clearTimeout(voiceStopTimer);
+      voiceStopTimer = null;
+      voiceBtn.classList.remove("pressing");
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try { mediaRecorder.stop(); } catch (err) {}
+      }
+    };
+
+    const startRecording = async event => {
+      event?.preventDefault();
+      if (mediaRecorder && mediaRecorder.state === "recording") return;
+      try {
+        voiceChunks = [];
+        voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(voiceStream);
+        mediaRecorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) voiceChunks.push(e.data);
+        };
+        mediaRecorder.onerror = () => {
+          voiceBtn.classList.remove("pressing");
+          stopTracks();
+          fallbackToKeyboardVoice("录音失败，可暂用输入法麦克风输入");
+        };
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          voiceChunks = [];
+          stopTracks();
+          try {
+            await uploadRecording(blob);
+          } catch (err) {
+            console.warn("ASR upload failed", err);
+            fallbackToKeyboardVoice("语音识别服务不可用，可暂用输入法麦克风输入");
+          }
+        };
+        mediaRecorder.start();
+        voiceBtn.classList.add("pressing");
+        $("#speechStatus").textContent = "录音中";
+        clearTimeout(voiceStopTimer);
+        voiceStopTimer = setTimeout(() => stopRecording(), VOICE_CONFIG.maxDurationMs);
+      } catch (err) {
+        console.warn("Recording unavailable", err);
+        fallbackToKeyboardVoice("无法打开麦克风，可暂用输入法麦克风输入");
+      }
+    };
+
+    voiceBtn.addEventListener("mousedown", startRecording);
+    voiceBtn.addEventListener("touchstart", startRecording, { passive: false });
+    voiceBtn.addEventListener("mouseup", stopRecording);
+    voiceBtn.addEventListener("mouseleave", stopRecording);
+    voiceBtn.addEventListener("touchend", stopRecording, { passive: false });
+    voiceBtn.addEventListener("touchcancel", stopRecording, { passive: false });
   }
 
   function bindEvents() {
