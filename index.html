@@ -522,7 +522,7 @@
           <textarea id="quickText" placeholder="说一句库存变化，比如“牛奶加 2 盒”。"></textarea>
           <div id="quickPreview" class="quick-preview" hidden></div>
           <div class="quick-actions" id="quickActions">
-            <button class="primary" id="parseBtn">解析并确认</button>
+            <button class="primary" id="parseBtn">确认更新</button>
             <button id="voiceBtn" type="button">按住说话</button>
             <button class="ghost" id="clearQuickBtn" type="button">清空</button>
           </div>
@@ -1369,6 +1369,27 @@
   function parseDateFromText(text) {
     const raw = String(text || "");
     const today = new Date();
+    const expiryWordPattern = "(?:过期|到期|有效期|有效期至|失效)";
+
+    const normalizeExpiryYear = (value) => {
+      const year = Number(value);
+      if (!Number.isFinite(year)) return null;
+      if (String(value).length === 2) return 2000 + year;
+      return year;
+    };
+
+    const makeDate = (yearValue, monthValue, dayValue = null) => {
+      const year = normalizeExpiryYear(yearValue);
+      const month = Number(monthValue);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return "";
+      const day = dayValue === null || dayValue === undefined || dayValue === ""
+        ? new Date(year, month, 0).getDate()
+        : Number(dayValue);
+      if (!Number.isFinite(day)) return "";
+      const d = new Date(year, month - 1, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return "";
+      return toDateInputValue(d);
+    };
 
     if (/后天/.test(raw)) {
       const d = new Date(today);
@@ -1395,22 +1416,40 @@
       }
     }
 
-    m = raw.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/);
+    m = raw.match(/(\d{2,4})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*(?:日|号)?)?/);
     if (m) {
-      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-      return Number.isNaN(d.getTime()) ? "" : toDateInputValue(d);
+      const parsed = makeDate(m[1], m[2], m[3]);
+      if (parsed) return parsed;
     }
 
-    m = raw.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/);
+    m = raw.match(/(\d{4})[\/\-.](\d{1,2})(?:[\/\-.](\d{1,2}))?/);
     if (m) {
-      const d = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
-      return Number.isNaN(d.getTime()) ? "" : toDateInputValue(d);
+      const parsed = makeDate(m[1], m[2], m[3]);
+      if (parsed) return parsed;
+    }
+
+    m = raw.match(new RegExp(`(?:^|[^\\d])(\\d{2})[\\/\\-.](\\d{1,2})(?:[\\/\\-.](\\d{1,2}))?\\s*(?=${expiryWordPattern}|$)`));
+    if (m) {
+      const parsed = makeDate(m[1], m[2], m[3]);
+      if (parsed) return parsed;
+    }
+
+    m = raw.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|号)?/);
+    if (m) {
+      const parsed = makeDate(today.getFullYear(), m[1], m[2]);
+      if (parsed) return parsed;
+    }
+
+    m = raw.match(new RegExp(`(\\d{1,2})\\s*月\\s*(?:底|末)?\\s*(?=${expiryWordPattern}|$)`));
+    if (m) {
+      const parsed = makeDate(today.getFullYear(), m[1]);
+      if (parsed) return parsed;
     }
 
     m = raw.match(/(\d{1,2})[\/\-](\d{1,2})/);
     if (m) {
-      const d = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
-      return Number.isNaN(d.getTime()) ? "" : toDateInputValue(d);
+      const parsed = makeDate(today.getFullYear(), m[1], m[2]);
+      if (parsed) return parsed;
     }
 
     return "";
@@ -1418,10 +1457,13 @@
 
   function stripDateText(text) {
     return String(text || "")
-      .replace(/(?:今天|明天|后天)\s*(?:过期|到期)?/g, "")
-      .replace(/(?:\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(?:天|日|周|星期|个月|月|年)\s*后\s*(?:过期|到期)?/g, "")
-      .replace(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/g, "")
-      .replace(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/g, "")
+      .replace(/(?:今天|明天|后天)\s*(?:过期|到期|有效期至?|失效)?/g, "")
+      .replace(/(?:\d+(?:\.\d+)?|[零一二两三四五六七八九十]+)\s*(?:天|日|周|星期|个月|月|年)\s*后\s*(?:过期|到期|有效期至?|失效)?/g, "")
+      .replace(/(\d{2,4})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*(?:日|号)?)?\s*(?:过期|到期|有效期至?|失效)?/g, "")
+      .replace(/(\d{4})[\/\-.](\d{1,2})(?:[\/\-.](\d{1,2}))?\s*(?:过期|到期|有效期至?|失效)?/g, "")
+      .replace(/(\d{2})[\/\-.](\d{1,2})(?:[\/\-.](\d{1,2}))?\s*(?:过期|到期|有效期至?|失效)/g, "")
+      .replace(/(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|号)?/g, "")
+      .replace(/(\d{1,2})\s*月\s*(?:底|末)?\s*(?:过期|到期|有效期至?|失效)/g, "")
       .replace(/(\d{1,2})[\/\-](\d{1,2})/g, "");
   }
 
@@ -2057,6 +2099,7 @@
     pendingParse = null;
     $("#confirmArea").innerHTML = "";
     $("#quickText").value = "";
+    clearQuickPreview();
     toast("已更新");
     render();
   }
@@ -2118,24 +2161,74 @@
       return;
     }
 
+    const exactItem = parsed.itemId ? getItemById(parsed.itemId) : null;
+    const similar = (parsed.similarItemIds || []).map(id => getItemById(id)).filter(Boolean);
     const candidates = getParsedCandidateItems(parsed);
+    const hasCandidateSelect = Boolean(exactItem || similar.length);
+    const needsQuantity = ["add", "reduce", "setRemaining", "addToShopping"].includes(parsed.action);
+    const needsExpiry = ["add", "setExpiry"].includes(parsed.action);
+
+    const existingOptions = [
+      exactItem ? `<option value="${exactItem.id}" selected>${escapeHtml(exactItem.name)}（已匹配）</option>` : "",
+      ...similar.map(item => `<option value="${item.id}">${escapeHtml(item.name)}（可能是）</option>`),
+      `<option value="">创建新物品</option>`
+    ].join("");
+
     preview.innerHTML = `
       <div class="row between wrap">
         <b>解析预览</b>
         <span class="pill ${parsed.confidence === "exact" ? "ok" : parsed.confidence === "similar" ? "warn" : ""}">${escapeHtml(parseConfidenceLabel(parsed))}</span>
       </div>
-      <div class="preview-grid">
-        <div class="preview-cell"><div class="tiny muted">动作</div><b>${escapeHtml(parsed.actionLabel || parsed.action)}</b></div>
-        <div class="preview-cell"><div class="tiny muted">物品</div><b>${escapeHtml(parsed.itemName)}</b></div>
-        <div class="preview-cell"><div class="tiny muted">数量</div><b>${parsed.quantity === null || parsed.quantity === undefined ? "-" : `${formatQty(parsed.quantity)}${escapeHtml(parsed.unit || "")}`}</b></div>
-        <div class="preview-cell"><div class="tiny muted">单位</div><b>${escapeHtml(parsed.unit || "-")}</b></div>
-        <div class="preview-cell"><div class="tiny muted">过期日</div><b>${escapeHtml(parsed.expiryDate || "-")}</b></div>
-        <div class="preview-cell"><div class="tiny muted">分类</div><b>${escapeHtml(parsed.category || "其他")}</b></div>
+      <div class="grid desktop-two">
+        <label>动作
+          <input value="${escapeHtml(parsed.actionLabel || parsed.action)}" disabled>
+        </label>
+        <label>物品
+          ${hasCandidateSelect
+            ? `<select id="confirmItemSelect">${existingOptions}</select>`
+            : `<input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">`
+          }
+        </label>
+
+        ${hasCandidateSelect ? `
+        <div id="confirmCreateFields" class="grid two" style="display:none;">
+          <label>新物品名称
+            <input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">
+          </label>
+          <label>新物品分类
+            <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
+          </label>
+        </div>` : `
+        <label>分类
+          <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
+        </label>`}
+
+        ${needsQuantity ? `<label>数量<input id="confirmQty" type="number" step="0.01" min="0" value="${escapeHtml(parsed.quantity ?? 1)}"></label>` : ""}
+        <label>单位<input id="confirmUnit" value="${escapeHtml(parsed.unit || exactItem?.unit || "")}" placeholder="盒 / 包 / 个 / 斤"></label>
+        ${needsExpiry ? `<label>过期日<input id="confirmExpiry" type="date" value="${escapeHtml(parsed.expiryDate || "")}"></label>` : ""}
       </div>
-      ${isPastDate(parsed.expiryDate) ? pastDateWarningHtml(parsed.expiryDate) : ""}
-      ${candidates.length ? renderCandidateItemsHtml(candidates, { title: "可能匹配的已有物品" }) : ""}
-      <div class="tiny muted">预览不会写入库存，点击“解析并确认”后仍需确认。</div>
+
+      ${needsExpiry ? pastDateWarningHtml(parsed.expiryDate) : ""}
+      ${candidates.length ? renderCandidateItemsHtml(candidates, { title: "候选物品，可在上方选择已有物品或创建新物品" }) : ""}
+      ${similar.length && !exactItem ? `<div class="tiny warn-text" style="margin-top:10px;">找到相似物品。请选择已有物品，或选择“创建新物品”。</div>` : ""}
+      ${!exactItem && !similar.length ? `<div class="tiny warn-text" style="margin-top:10px;">没有找到物品。确认更新后会新增物品，并使用你选择的分类。</div>` : ""}
+      <div class="tiny muted">预览不会自动写入库存；可先编辑上方字段，再点击“确认更新”。</div>
     `;
+
+    const updateCandidateSelection = () => {
+      const selectedId = $("#confirmItemSelect")?.value || "";
+      const selected = selectedId ? getItemById(selectedId) : null;
+      const createFields = $("#confirmCreateFields");
+      if (createFields) createFields.style.display = selectedId ? "none" : "grid";
+      if (selected?.unit && $("#confirmUnit") && !$("#confirmUnit").value) {
+        $("#confirmUnit").value = selected.unit;
+      }
+    };
+
+    $("#confirmItemSelect")?.addEventListener("change", updateCandidateSelection);
+    updateCandidateSelection();
+    bindExpiryWarning("#confirmExpiry");
+
     preview.hidden = false;
   }
 
@@ -2145,9 +2238,11 @@
       const value = $("#quickText")?.value || "";
       const parsed = parseQuickInput(value);
       if (!isUsableParse(parsed)) {
+        pendingParse = null;
         clearQuickPreview();
         return;
       }
+      pendingParse = parsed;
       renderQuickPreview(parsed);
     }, 300);
   }
@@ -3145,7 +3240,6 @@
       if (isUsableParse(parsed)) {
         pendingParse = parsed;
         renderQuickPreview(parsed);
-        renderConfirm(parsed);
       } else {
         clearQuickPreview();
       }
@@ -3356,12 +3450,20 @@
       scheduleQuickPreview();
     });
 
-    $("#parseBtn").onclick = () => {
-      const parsed = parseQuickInput($("#quickText").value);
-      if (!isUsableParse(parsed)) return toast("请先输入一句可解析的库存变化");
-      pendingParse = parsed;
-      renderQuickPreview(parsed);
-      renderConfirm(parsed);
+    $("#parseBtn").onclick = async () => {
+      try {
+        const raw = $("#quickText").value.trim();
+        let parsed = pendingParse && pendingParse.rawInput === raw ? pendingParse : parseQuickInput(raw);
+        if (!isUsableParse(parsed)) return toast("请先输入一句可解析的库存变化");
+        pendingParse = parsed;
+        if ($("#quickPreview")?.hidden || !$("#quickPreview")?.innerHTML.trim()) {
+          renderQuickPreview(parsed);
+        }
+        const selectedId = $("#confirmItemSelect")?.value || "";
+        await applyParsed(parsed, selectedId);
+      } catch (err) {
+        toast(err.message || String(err));
+      }
     };
 
     $("#clearQuickBtn").onclick = () => {
