@@ -43,6 +43,12 @@
       background: #edf2f7;
       color: var(--text);
       font-weight: 700;
+      transition: transform .08s ease, filter .08s ease, background .08s ease;
+    }
+
+    button:not(:disabled):active {
+      transform: scale(0.98);
+      filter: brightness(0.98);
     }
 
     button.primary {
@@ -67,6 +73,7 @@
       padding: 8px 10px;
       border-radius: 10px;
       font-size: 14px;
+      cursor: pointer;
     }
 
     button:disabled {
@@ -236,6 +243,50 @@
       transform: scale(0.99);
     }
 
+    .quick-preview {
+      margin-top: 10px;
+      border: 1px solid rgba(31, 122, 77, 0.18);
+      background: #fbfffc;
+      border-radius: 16px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .quick-preview[hidden] { display: none; }
+
+    .preview-grid, .candidate-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .preview-cell, .candidate-card {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .candidate-card {
+      display: grid;
+      gap: 4px;
+    }
+
+    .expiry-warning {
+      border: 1px solid #f5c2c0;
+      background: #fff1f0;
+      color: var(--danger);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 800;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+      touch-action: none;
+    }
+
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -373,7 +424,7 @@
       width: 100%;
       max-width: 720px;
       margin: 0 auto;
-      max-height: 92vh;
+      max-height: calc(100vh - 32px - env(safe-area-inset-bottom));
       overflow: auto;
       background: #fff;
       border-radius: 24px;
@@ -382,6 +433,7 @@
     }
 
     .modal h2 { margin: 4px 0 12px; font-size: 20px; }
+    .modal button.small { min-height: 44px; }
 
     .empty {
       text-align: center;
@@ -413,6 +465,7 @@
       max-width: calc(100vw - 28px);
       text-align: center;
       font-size: 14px;
+      cursor: pointer;
     }
 
     .toast.show { display: block; }
@@ -433,8 +486,10 @@
     @media (min-width: 760px) {
       .app-shell { padding-left: 22px; padding-right: 22px; }
       header { margin-left: -22px; margin-right: -22px; padding-left: 22px; padding-right: 22px; }
-      .filters { grid-template-columns: 1.2fr 2fr; top: 76px; }
+      .filters { grid-template-columns: 1fr 1fr; top: 76px; }
+      .filter-flags { grid-column: 1 / -1; }
       .quick-actions { grid-template-columns: 1.2fr 1fr 1fr; }
+      .preview-grid, .candidate-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .modal-backdrop { align-items: center; }
       .modal { border-radius: 28px; }
       .grid.desktop-two { grid-template-columns: 1fr 1fr; }
@@ -465,13 +520,14 @@
             <span class="pill primary" id="speechStatus">文字输入</span>
           </div>
           <textarea id="quickText" placeholder="说一句库存变化，比如“牛奶加 2 盒”。"></textarea>
+          <div id="quickPreview" class="quick-preview" hidden></div>
           <div class="quick-actions" id="quickActions">
             <button class="primary" id="parseBtn">解析并确认</button>
             <button id="voiceBtn" type="button">按住说话</button>
             <button class="ghost" id="clearQuickBtn" type="button">清空</button>
           </div>
           <div class="tiny muted" style="margin-top:8px;">
-            可试：<span class="kbd">牛奶加 2 盒</span>、<span class="kbd">鸡蛋吃了 2 个</span>、<span class="kbd">大米还剩 3 斤</span>、<span class="kbd">牛奶 6 月 20 日过期</span>
+            可试：<span class="kbd">牛奶加 2 盒</span>、<span class="kbd">粉底液还剩半瓶</span>、<span class="kbd">口红用完了</span>、<span class="kbd">牛奶 6 月 20 日过期</span>
           </div>
         </div>
 
@@ -522,8 +578,9 @@
         </div>
 
         <div class="filters">
+          <input id="inventorySearch" type="search" placeholder="搜索名称、别名、品牌、规格、分类、位置">
           <select id="categoryFilter"></select>
-          <div class="row wrap">
+          <div class="row wrap filter-flags">
             <label class="checkbox-line"><input type="checkbox" id="filterLow"> 低库存</label>
             <label class="checkbox-line"><input type="checkbox" id="filterExpiring"> 临期</label>
             <label class="checkbox-line"><input type="checkbox" id="filterExpired"> 已过期</label>
@@ -550,8 +607,13 @@
             <h2 style="margin:0;">操作日志</h2>
             <div class="muted tiny">包含原始输入、解析结果、动作、数量变化和修改人字段</div>
           </div>
-          <button class="danger small" id="clearDataBtn">清空本地数据</button>
+          <div class="row wrap">
+            <button class="small ghost" id="exportBackupBtn" type="button">导出备份</button>
+            <button class="small ghost" id="importBackupBtn" type="button">导入备份</button>
+            <button class="danger small" id="clearDataBtn" type="button">清空本地数据</button>
+          </div>
         </div>
+        <input id="importBackupInput" type="file" accept="application/json,.json" hidden>
         <div id="logsList"></div>
       </section>
     </main>
@@ -567,7 +629,7 @@
   </nav>
 
   <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
-    <div class="modal" id="modal"></div>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1"></div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -576,8 +638,10 @@
 (() => {
   "use strict";
 
+  // ===== state/storage: local schema, persistence, undo snapshots =====
   const STORAGE_KEY = "homeStockVoice.v1";
-  const CATEGORIES = ["食品", "冷冻", "米面粮油", "调味品", "洗护", "清洁", "纸品", "药品", "宠物", "工具/电池", "其他"];
+  const UNDO_SNAPSHOT_LIMIT = 20;
+  const CATEGORIES = ["食品", "冷冻", "米面粮油", "调味品", "化妆品/护肤", "洗护", "清洁", "纸品", "药品", "母婴用品", "宠物", "厨房用品", "办公/文具", "汽车用品", "工具/电池", "其他"];
   const ACTION_LABELS = {
     add: "增加库存",
     reduce: "减少库存",
@@ -585,12 +649,15 @@
     usedUp: "用完",
     setExpiry: "设置过期日",
     addToShopping: "加入购物清单",
+    addItem: "新增物品",
     editItem: "编辑物品",
     deleteItem: "删除物品",
     addBatch: "新增批次",
     editBatch: "编辑批次",
     deleteBatch: "删除批次",
     shoppingBought: "购物清单转库存",
+    editShoppingStatus: "修改购物清单状态",
+    deleteShopping: "删除购物清单项",
     undo: "撤销"
   };
 
@@ -599,27 +666,102 @@
     maxDurationMs: 15000
   };
 
+
+  /**
+   * @typedef {Object} HomeStockBatch
+   * @property {string} id
+   * @property {number} quantity
+   * @property {string} purchaseDate
+   * @property {string} expiryDate
+   * @property {string} location
+   * @property {string} notes
+   */
+
+  /**
+   * @typedef {Object} HomeStockItem
+   * @property {string} id
+   * @property {string} name
+   * @property {string[]} aliases
+   * @property {string} category
+   * @property {string} unit
+   * @property {number} currentQuantity
+   * @property {number} minStock
+   * @property {HomeStockBatch[]} batches
+   */
+
+  /**
+   * @typedef {Object} ShoppingRow
+   * @property {string} id
+   * @property {string} itemId
+   * @property {string} itemName
+   * @property {number} suggestedQuantity
+   * @property {string} unit
+   * @property {"待买"|"已买"|"忽略"|string} status
+   */
+
+  /**
+   * @typedef {Object} OperationLog
+   * @property {string} id
+   * @property {string} timestamp
+   * @property {string} action
+   * @property {string} itemName
+   * @property {number} quantityChange
+   * @property {Object|null} parsedResult
+   */
+
+  /**
+   * @typedef {Object} ParseResult
+   * @property {string} rawInput
+   * @property {string} itemName
+   * @property {"add"|"reduce"|"setRemaining"|"usedUp"|"setExpiry"|"addToShopping"} action
+   * @property {string} actionLabel
+   * @property {number|null} quantity
+   * @property {string} unit
+   * @property {string} expiryDate
+   * @property {string} category
+   * @property {string} itemId
+   * @property {string[]} similarItemIds
+   * @property {"exact"|"similar"|"new"} confidence
+   */
+
+  // ===== parser: lightweight Chinese rule parser, no external NLP dependencies =====
   const CATEGORY_KEYWORDS = {
     "食品": [
-      "矿泉水", "火腿肠", "加多宝", "王老吉", "牛奶", "酸奶", "鸡蛋", "面包", "蛋糕", "水果", "苹果", "香蕉", "橙子",
-      "蔬菜", "番茄", "西红柿", "土豆", "饮料", "可乐", "饼干", "零食", "豆腐", "猪肉", "牛肉", "鸡肉", "肉", "鱼", "虾"
+      "肉类罐头", "蔬菜罐头", "水果罐头", "常温奶", "茶饮料", "矿泉水", "火腿肠", "加多宝", "王老吉",
+      "牛奶", "酸奶", "鸡蛋", "面包", "蛋糕", "水果", "苹果", "香蕉", "橙子", "蔬菜", "番茄", "西红柿",
+      "土豆", "饮料", "可乐", "雪碧", "果汁", "咖啡", "奶粉", "饼干", "零食", "豆腐", "猪肉", "牛肉",
+      "鸡肉", "罐头", "木耳", "香菇", "紫菜", "海带", "粉条", "肉", "鱼", "虾"
     ],
     "冷冻": ["冷冻肉", "冷冻鱼", "冷冻虾", "冻饺子", "冰淇淋", "速冻", "冷冻", "饺子", "汤圆"],
     "米面粮油": [
       "方便面", "玉米面", "食用油", "花生油", "菜籽油", "橄榄油", "粮油", "大米", "面粉", "面条", "挂面", "粉丝", "米"
     ],
     "调味品": [
-      "火锅底料", "辣椒酱", "豆瓣酱", "番茄酱", "胡椒粉", "白糖", "酱油", "生抽", "老抽", "料酒", "蚝油", "鸡精", "味精", "辣椒", "调料", "盐", "糖", "醋"
+      "火锅底料", "辣椒酱", "豆瓣酱", "番茄酱", "黄豆酱", "芝麻酱", "老干妈", "胡椒粉", "白糖",
+      "酱油", "生抽", "老抽", "料酒", "蚝油", "鸡精", "味精", "辣椒", "调料", "盐", "糖", "醋"
+    ],
+    "化妆品/护肤": [
+      "防晒霜", "防晒乳", "卸妆油", "卸妆水", "润肤霜", "护手霜", "身体乳", "保湿霜", "爽肤水", "柔肤水",
+      "收敛水", "洁面泡沫", "去角质", "磨砂膏", "粉底液", "定妆粉", "隔离霜", "妆前乳", "眼线笔",
+      "睫毛膏", "修容粉", "指甲油", "洗甲水", "洗面奶", "面霜", "乳液", "精华", "眼霜", "面膜",
+      "粉饼", "气垫", "散粉", "遮瑕", "眉笔", "眼影", "眼线", "腮红", "高光", "口红", "唇膏",
+      "唇釉", "唇彩", "香水", "花露水", "爽身粉"
     ],
     "洗护": [
-      "洗发水", "护发素", "沐浴露", "洗面奶", "洗手液", "护手霜", "身体乳", "卫生巾", "纸尿裤", "香皂", "牙膏", "牙刷"
+      "洗发水", "护发素", "沐浴露", "洗手液", "卫生巾", "纸尿裤", "香皂", "牙膏", "牙刷"
     ],
     "清洁": [
-      "洗衣液", "洗衣粉", "洗洁精", "消毒液", "洁厕灵", "清洁剂", "垃圾袋", "洗碗布", "除菌", "抹布", "拖把", "扫把", "海绵"
+      "洗衣凝珠", "空气清新剂", "洗衣液", "洗衣粉", "洗洁精", "消毒液", "洁厕灵", "清洁剂", "垃圾袋",
+      "洗碗布", "柔顺剂", "漂白剂", "衣领净", "除湿盒", "樟脑丸", "百洁布", "清洁球", "玻璃擦",
+      "除菌", "抹布", "拖把", "扫把", "海绵"
     ],
-    "纸品": ["厨房纸", "保鲜膜", "保鲜袋", "纸巾", "抽纸", "卷纸", "厕纸", "湿巾", "纸杯", "锡纸"],
-    "药品": ["感冒药", "退烧药", "止痛药", "创可贴", "体温计", "维生素", "碘伏", "酒精", "棉签", "口罩", "胶囊", "药", "片"],
-    "宠物": ["宠物罐头", "猫罐头", "狗罐头", "牵引绳", "猫粮", "狗粮", "猫砂", "宠物", "冻干"],
+    "纸品": ["厨房纸巾", "湿厕纸", "棉柔巾", "洗脸巾", "厨房纸", "保鲜膜", "保鲜袋", "纸巾", "抽纸", "卷纸", "厕纸", "湿巾", "纸杯", "锡纸"],
+    "药品": ["碘伏棉签", "肠胃药", "过敏药", "眼药水", "风油精", "清凉油", "感冒药", "退烧药", "止痛药", "创可贴", "体温计", "维生素", "碘伏", "酒精", "棉签", "口罩", "胶囊", "药", "片"],
+    "母婴用品": ["婴儿奶粉", "尿不湿", "纸尿裤", "婴儿湿巾", "奶瓶", "安抚奶嘴", "奶嘴", "婴儿", "宝宝"],
+    "宠物": ["宠物沐浴露", "宠物零食", "宠物玩具", "宠物罐头", "猫罐头", "狗罐头", "驱虫药", "牵引绳", "猫粮", "狗粮", "猫砂", "宠物", "冻干"],
+    "厨房用品": ["保鲜盒", "密封罐", "保温杯", "饭盒", "锅具", "刀具", "砧板", "碗盘", "筷子", "勺子", "锅", "碗", "盘"],
+    "办公/文具": ["笔记本", "文件夹", "订书机", "回形针", "便利贴", "便签", "打印纸", "马克笔", "中性笔", "铅笔", "橡皮", "文具"],
+    "汽车用品": ["玻璃水", "雨刮器", "防冻液", "车载香薰", "座垫", "机油", "雨刮"],
     "工具/电池": ["加湿器", "插线板", "螺丝刀", "充电器", "数据线", "电池", "灯泡", "胶带", "剪刀", "工具"]
   };
 
@@ -627,13 +769,21 @@
     .flatMap(([category, keywords]) => keywords.map(keyword => ({ category, keyword })))
     .sort((a, b) => b.keyword.length - a.keyword.length);
 
+  let startupWarning = null;
   let state = loadState();
   let pendingParse = null;
+  let quickPreviewTimer = null;
   let mediaRecorder = null;
   let voiceStream = null;
   let voiceChunks = [];
   let voiceStopTimer = null;
   let expandedItems = new Set();
+  let inventoryRenderLimit = 80;
+  let shoppingRenderLimit = 80;
+  let logsRenderLimit = 80;
+  let activeModalCancel = null;
+  let activeModalOptions = { closeOnEscape: true, closeOnBackdrop: true, dangerous: false };
+  let previousModalFocus = null;
 
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -685,37 +835,215 @@
     return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   }
 
-  function loadState() {
-    const fallback = {
+  /**
+   * Create an empty, schemaVersion 1 state object.
+   * @param {Partial<Object>} seed
+   * @returns {{schemaVersion:number, householdId:string, userId:string, items:HomeStockItem[], shoppingList:ShoppingRow[], logs:OperationLog[], createdAt:string, updatedAt:string}}
+   */
+  function createEmptyState(seed = {}) {
+    return {
       schemaVersion: 1,
-      householdId: "local-household",
-      userId: "local-user",
+      householdId: seed.householdId || "local-household",
+      userId: seed.userId || "local-user",
       items: [],
       shoppingList: [],
       logs: [],
-      createdAt: nowISO(),
-      updatedAt: nowISO()
+      createdAt: seed.createdAt || nowISO(),
+      updatedAt: seed.updatedAt || nowISO()
     };
+  }
+
+  /**
+   * Normalize one batch while preserving compatible schemaVersion 1 fields.
+   * @param {Partial<HomeStockBatch>} batch
+   * @param {HomeStockItem} item
+   * @returns {HomeStockBatch}
+   */
+  function normalizeBatchForState(batch = {}, item = {}) {
+    return {
+      id: batch.id || uid("batch"),
+      householdId: batch.householdId || item.householdId || "local-household",
+      userId: batch.userId || item.userId || "local-user",
+      quantity: Math.max(0, asNumber(batch.quantity, 0)),
+      purchaseDate: String(batch.purchaseDate || ""),
+      expiryDate: String(batch.expiryDate || ""),
+      location: String(batch.location || item.location || ""),
+      notes: String(batch.notes || ""),
+      createdAt: batch.createdAt || nowISO(),
+      updatedAt: batch.updatedAt || nowISO()
+    };
+  }
+
+  /**
+   * Normalize one inventory item and its nested batches.
+   * @param {Partial<HomeStockItem>} item
+   * @param {Object} owner
+   * @returns {HomeStockItem}
+   */
+  function normalizeItemForState(item = {}, owner = {}) {
+    const normalized = {
+      id: item.id || uid("item"),
+      householdId: item.householdId || owner.householdId || "local-household",
+      userId: item.userId || owner.userId || "local-user",
+      name: String(item.name || "").trim() || "未命名物品",
+      aliases: Array.isArray(item.aliases) ? item.aliases.map(String).filter(Boolean) : [],
+      category: CATEGORIES.includes(item.category) ? item.category : (item.category || "其他"),
+      brand: String(item.brand || ""),
+      spec: String(item.spec || ""),
+      unit: String(item.unit || ""),
+      currentQuantity: Math.max(0, asNumber(item.currentQuantity, 0)),
+      minStock: Math.max(0, asNumber(item.minStock, 0)),
+      expiryReminderDays: Math.max(0, asNumber(item.expiryReminderDays, 7)),
+      expiryReminderEnabled: item.expiryReminderEnabled !== false,
+      location: String(item.location || ""),
+      barcode: String(item.barcode || ""),
+      notes: String(item.notes || ""),
+      batches: [],
+      createdAt: item.createdAt || nowISO(),
+      updatedAt: item.updatedAt || nowISO()
+    };
+
+    normalized.batches = Array.isArray(item.batches)
+      ? item.batches.map(batch => normalizeBatchForState(batch, normalized))
+      : [];
+
+    if (!normalized.batches.length && normalized.currentQuantity > 0) {
+      normalized.batches.push(normalizeBatchForState({
+        quantity: normalized.currentQuantity,
+        purchaseDate: todayISO(),
+        location: normalized.location,
+        notes: "由旧数据 currentQuantity 迁移生成"
+      }, normalized));
+    }
+
+    syncItemQty(normalized);
+    return normalized;
+  }
+
+  /**
+   * Normalize one shopping-list row.
+   * @param {Partial<ShoppingRow>} row
+   * @param {Object} owner
+   * @returns {ShoppingRow}
+   */
+  function normalizeShoppingRowForState(row = {}, owner = {}) {
+    return {
+      id: row.id || uid("shop"),
+      householdId: row.householdId || owner.householdId || "local-household",
+      userId: row.userId || owner.userId || "local-user",
+      itemId: String(row.itemId || ""),
+      itemName: String(row.itemName || "").trim() || "未命名物品",
+      suggestedQuantity: Math.max(0, asNumber(row.suggestedQuantity, 1)),
+      unit: String(row.unit || ""),
+      reason: String(row.reason || "导入/迁移"),
+      status: String(row.status || "待买"),
+      createdAt: row.createdAt || nowISO(),
+      updatedAt: row.updatedAt || nowISO()
+    };
+  }
+
+  /**
+   * Normalize one operation log.
+   * @param {Partial<OperationLog>} log
+   * @param {Object} owner
+   * @returns {OperationLog}
+   */
+  function normalizeLogForState(log = {}, owner = {}) {
+    return {
+      ...log,
+      id: log.id || uid("log"),
+      householdId: log.householdId || owner.householdId || "local-household",
+      userId: log.userId || owner.userId || "local-user",
+      timestamp: log.timestamp || nowISO(),
+      rawInput: String(log.rawInput || ""),
+      parsedResult: log.parsedResult ?? null,
+      action: String(log.action || "imported"),
+      actionLabel: log.actionLabel || ACTION_LABELS[log.action] || String(log.action || "导入记录"),
+      itemId: String(log.itemId || ""),
+      itemName: String(log.itemName || ""),
+      quantityChange: asNumber(log.quantityChange, 0),
+      unit: String(log.unit || ""),
+      actorId: log.actorId || owner.userId || "local-user",
+      modifiedBy: log.modifiedBy || log.actorId || owner.userId || "local-user",
+      undone: Boolean(log.undone)
+    };
+  }
+
+  /**
+   * Validate and migrate any state-like payload into the current schemaVersion 1 shape.
+   * @param {Object} rawState
+   * @param {{source?: string, requireArrays?: boolean}} options
+   * @returns {ReturnType<typeof createEmptyState>}
+   */
+  function migrateState(rawState, { source = "storage", requireArrays = false } = {}) {
+    if (!rawState || typeof rawState !== "object" || Array.isArray(rawState)) {
+      throw new Error(`${source === "import" ? "备份文件" : "本地数据"}不是有效的数据对象`);
+    }
+
+    const version = asNumber(rawState.schemaVersion, 1);
+    if (version > 1) {
+      console.warn("State schemaVersion is newer than this app; trying best-effort migration.", version);
+    }
+
+    if (requireArrays) {
+      if (!Array.isArray(rawState.items)) throw new Error("备份缺少 items 数组");
+      if (!Array.isArray(rawState.shoppingList)) throw new Error("备份缺少 shoppingList 数组");
+      if (!Array.isArray(rawState.logs)) throw new Error("备份缺少 logs 数组");
+    }
+
+    const migrated = createEmptyState(rawState);
+    migrated.items = Array.isArray(rawState.items)
+      ? rawState.items.map(item => normalizeItemForState(item, migrated))
+      : [];
+    migrated.shoppingList = Array.isArray(rawState.shoppingList)
+      ? rawState.shoppingList.map(row => normalizeShoppingRowForState(row, migrated))
+      : [];
+    migrated.logs = Array.isArray(rawState.logs)
+      ? rawState.logs.map(log => normalizeLogForState(log, migrated))
+      : [];
+    migrated.schemaVersion = 1;
+    return migrated;
+  }
+
+  function reportCorruptLocalState(raw, err) {
+    const key = `${STORAGE_KEY}.corrupt.${Date.now()}`;
+    startupWarning = "本地数据 JSON 损坏，已切换到临时空状态；原始字符串已保留到 console 和 sessionStorage，建议先联系开发者或手动备份后再继续操作。";
+    console.error("Home Stock Voice localStorage JSON is corrupted. Raw string is preserved below and in sessionStorage key:", key, err);
+    console.error(raw);
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return fallback;
-      const parsed = JSON.parse(raw);
-      return {
-        ...fallback,
-        ...parsed,
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-        shoppingList: Array.isArray(parsed.shoppingList) ? parsed.shoppingList : [],
-        logs: Array.isArray(parsed.logs) ? parsed.logs : []
-      };
+      sessionStorage.setItem(key, raw || "");
+    } catch (storageErr) {
+      console.warn("Failed to preserve corrupted localStorage string in sessionStorage", storageErr);
+    }
+  }
+
+  /**
+   * Load persisted state. Corrupted JSON is never silently discarded and the original string is preserved.
+   * @returns {ReturnType<typeof createEmptyState>}
+   */
+  function loadState() {
+    const fallback = createEmptyState();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return fallback;
+
+    try {
+      return migrateState(JSON.parse(raw), { source: "storage" });
     } catch (err) {
-      console.warn("Failed to load local state", err);
+      reportCorruptLocalState(raw, err);
       return fallback;
     }
   }
 
   function saveState() {
     state.updatedAt = nowISO();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return true;
+    } catch (err) {
+      console.warn("Failed to save local state", err);
+      toast("保存失败，请先导出备份或清理浏览器空间");
+      return false;
+    }
   }
 
   function snapshotForUndo() {
@@ -725,8 +1053,46 @@
     };
   }
 
-  function addLog({ rawInput = "", parsedResult = null, action, itemId = "", itemName = "", quantityChange = 0, unit = "", beforeSnapshot = null, afterSnapshot = null }) {
-    state.logs.unshift({
+  function hasUsableUndoSnapshot(log) {
+    return Boolean(
+      log &&
+      log.action !== "undo" &&
+      !log.undone &&
+      log.undoStateBefore &&
+      Array.isArray(log.undoStateBefore.items) &&
+      Array.isArray(log.undoStateBefore.shoppingList)
+    );
+  }
+
+  function compactUndoSnapshots() {
+    let keptUndoSnapshots = 0;
+    let changed = false;
+    state.logs.forEach(log => {
+      if (Object.prototype.hasOwnProperty.call(log, "undoStateAfter")) {
+        delete log.undoStateAfter;
+        changed = true;
+      }
+
+      if (hasUsableUndoSnapshot(log)) {
+        keptUndoSnapshots += 1;
+        if (keptUndoSnapshots > UNDO_SNAPSHOT_LIMIT) {
+          delete log.undoStateBefore;
+          changed = true;
+        }
+      } else if (Object.prototype.hasOwnProperty.call(log, "undoStateBefore")) {
+        delete log.undoStateBefore;
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  /**
+   * Append an operation log and keep only a bounded number of undo snapshots.
+   * @param {Partial<OperationLog> & {beforeSnapshot?: Object|null}} logInput
+   */
+  function addLog({ rawInput = "", parsedResult = null, action, itemId = "", itemName = "", quantityChange = 0, unit = "", beforeSnapshot = null }) {
+    const log = {
       id: uid("log"),
       householdId: state.householdId,
       userId: state.userId,
@@ -741,11 +1107,16 @@
       unit,
       actorId: state.userId,
       modifiedBy: state.userId,
-      undoStateBefore: beforeSnapshot,
-      undoStateAfter: afterSnapshot,
       undone: false
-    });
+    };
+
+    if (action !== "undo" && beforeSnapshot) {
+      log.undoStateBefore = beforeSnapshot;
+    }
+
+    state.logs.unshift(log);
     state.logs = state.logs.slice(0, 300);
+    compactUndoSnapshots();
   }
 
   function totalQty(item) {
@@ -776,6 +1147,29 @@
     return Math.ceil((d - today) / 86400000);
   }
 
+  function isPastDate(dateStr) {
+    const days = daysUntil(dateStr);
+    return days !== null && days < 0;
+  }
+
+  function pastDateWarningHtml(dateStr = "") {
+    const hidden = isPastDate(dateStr) ? "" : "hidden";
+    return `<div class="expiry-warning tiny" data-expiry-warning ${hidden}>该日期早于今天，请确认是否为已过期批次。</div>`;
+  }
+
+  function bindExpiryWarning(inputSelector, warningSelector = "[data-expiry-warning]") {
+    const input = $(inputSelector);
+    const warning = $(warningSelector);
+    if (!input || !warning) return;
+    const update = () => {
+      warning.hidden = !isPastDate(input.value);
+    };
+    input.addEventListener("input", update);
+    input.addEventListener("change", update);
+    update();
+  }
+
+
   function isExpiredItem(item) {
     return (item.batches || []).some(batch => asNumber(batch.quantity, 0) > 0 && batch.expiryDate && daysUntil(batch.expiryDate) < 0);
   }
@@ -790,7 +1184,8 @@
   }
 
   function isLowStockItem(item) {
-    return totalQty(item) <= asNumber(item.minStock, 0);
+    const min = asNumber(item?.minStock, 0);
+    return min > 0 && totalQty(item) <= min;
   }
 
   function getExpiredBatches() {
@@ -812,33 +1207,103 @@
     }).sort((a, b) => a.days - b.days);
   }
 
+  // ===== shopping: dedupe and status mutations =====
+
+  function shoppingListMatchKey(row) {
+    const itemId = String(row?.itemId || "").trim();
+    if (itemId) return `id:${itemId}`;
+    return `name:${normalizeName(row?.itemName)}|unit:${normalizeName(row?.unit)}`;
+  }
+
+  function upsertShoppingListRow({ item = null, itemId = "", itemName = "", suggestedQuantity = 1, unit = "", reason = "手动加入", status = "待买", mergeMode = "add" }) {
+    const row = {
+      itemId: item?.id || itemId || "",
+      itemName: item?.name || String(itemName || "").trim(),
+      suggestedQuantity: Math.max(0, asNumber(suggestedQuantity, 1)),
+      unit: unit || item?.unit || "",
+      reason,
+      status
+    };
+
+    const key = shoppingListMatchKey(row);
+    const existing = state.shoppingList.find(candidate => candidate.status === "待买" && shoppingListMatchKey(candidate) === key);
+
+    if (existing) {
+      const previous = {
+        itemId: existing.itemId || "",
+        itemName: existing.itemName || "",
+        suggestedQuantity: asNumber(existing.suggestedQuantity, 0),
+        unit: existing.unit || "",
+        reason: existing.reason || ""
+      };
+
+      // 手动加入和语音/文字加入采用同一策略：合并到同一条“待买”项，并累加建议购买数量，避免重复卡片。
+      const nextQuantity = mergeMode === "max"
+        ? Math.max(previous.suggestedQuantity, row.suggestedQuantity)
+        : previous.suggestedQuantity + row.suggestedQuantity;
+      const nextItemId = existing.itemId || row.itemId;
+      const nextItemName = row.itemName || existing.itemName;
+      const nextUnit = row.unit || existing.unit;
+      const nextReason = reason || existing.reason;
+      const changed = previous.suggestedQuantity !== nextQuantity ||
+        previous.itemId !== (nextItemId || "") ||
+        previous.itemName !== (nextItemName || "") ||
+        previous.unit !== (nextUnit || "") ||
+        previous.reason !== (nextReason || "");
+
+      if (changed) {
+        existing.suggestedQuantity = nextQuantity;
+        existing.itemId = nextItemId;
+        existing.itemName = nextItemName;
+        existing.unit = nextUnit;
+        existing.reason = nextReason;
+        existing.updatedAt = nowISO();
+      }
+
+      return { row: existing, created: false, changed };
+    }
+
+    const created = {
+      id: uid("shop"),
+      householdId: state.householdId,
+      userId: state.userId,
+      itemId: row.itemId,
+      itemName: row.itemName,
+      suggestedQuantity: row.suggestedQuantity,
+      unit: row.unit,
+      reason: row.reason,
+      status: row.status,
+      createdAt: nowISO(),
+      updatedAt: nowISO()
+    };
+
+    state.shoppingList.unshift(created);
+    return { row: created, created: true, changed: true };
+  }
+
   function ensureAutoShoppingList() {
     let changed = false;
     state.items.forEach(item => {
+      if (!isLowStockItem(item)) return;
+
       const qty = totalQty(item);
       const min = asNumber(item.minStock, 0);
-      if (min > 0 && qty <= min) {
-        const exists = state.shoppingList.some(row => row.itemId === item.id && row.status === "待买" && row.reason.includes("低库存"));
-        if (!exists) {
-          state.shoppingList.unshift({
-            id: uid("shop"),
-            householdId: state.householdId,
-            userId: state.userId,
-            itemId: item.id,
-            itemName: item.name,
-            suggestedQuantity: Math.max(1, min - qty + 1),
-            unit: item.unit || "",
-            reason: `低库存：当前 ${formatQty(qty)}${item.unit || ""}，最低 ${formatQty(min)}${item.unit || ""}`,
-            status: "待买",
-            createdAt: nowISO(),
-            updatedAt: nowISO()
-          });
-          changed = true;
-        }
-      }
+      const reason = `低库存：当前 ${formatQty(qty)}${item.unit || ""}，最低 ${formatQty(min)}${item.unit || ""}`;
+      const result = upsertShoppingListRow({
+        item,
+        suggestedQuantity: Math.max(1, min - qty + 1),
+        unit: item.unit || "",
+        reason,
+        status: "待买",
+        mergeMode: "max"
+      });
+      if (result.changed) changed = true;
     });
     if (changed) saveState();
+    return changed;
   }
+
+  // ===== parser helpers =====
 
   function levenshtein(a, b) {
     a = normalizeName(a);
@@ -883,11 +1348,13 @@
 
   function parseChineseNumber(text) {
     if (!text) return null;
-    const direct = String(text).match(/\d+(?:\.\d+)?/);
+    const value = String(text).trim();
+    const direct = value.match(/\d+(?:\.\d+)?/);
     if (direct) return Number(direct[0]);
+    if (value === "半" || value === "一半") return 0.5;
 
     const map = { 零:0, 一:1, 二:2, 两:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9 };
-    let s = String(text).trim();
+    let s = value;
     if (!s) return null;
     if (s === "十") return 10;
     if (s.includes("十")) {
@@ -965,7 +1432,7 @@
     return hit?.category || "其他";
   }
 
-  const UNIT_PATTERN = "毫升|公斤|千克|克|盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|片|粒|只|条|件|箱|杯|板|颗|根|双|套|组";
+  const UNIT_PATTERN = "毫升|公斤|千克|克|盒|包|个|斤|瓶|袋|卷|支|罐|桶|升|片|粒|只|条|件|箱|杯|板|颗|根|双|套|组|份|本";
   const ACTION_RULES = [
     { action: "addToShopping", words: ["加入购物清单", "加入清单", "加到购物清单", "加购物清单"] },
     { action: "usedUp", words: ["用完了", "没有了", "用完", "没了"] },
@@ -980,7 +1447,7 @@
 
   function extractQuantity(text) {
     const raw = String(text || "");
-    const re = new RegExp(`(\\d+(?:\\.\\d+)?|[零一二两三四五六七八九十]+)\\s*(${UNIT_PATTERN})?`);
+    const re = new RegExp(`(\\d+(?:\\.\\d+)?|半|一半|[零一二两三四五六七八九十]+)\\s*(${UNIT_PATTERN})?`);
     const m = raw.match(re);
     if (!m) return null;
     const quantity = parseChineseNumber(m[1]);
@@ -1068,7 +1535,13 @@
     while (changed) {
       changed = false;
       for (const word of ALL_ACTION_WORDS) {
-        if (word.length <= 1) continue;
+        if (word.length <= 1) {
+          if (value.length > 1 && value.endsWith(word)) {
+            value = value.slice(0, -word.length);
+            changed = true;
+          }
+          continue;
+        }
         if (value.startsWith(word)) {
           value = value.slice(word.length);
           changed = true;
@@ -1084,7 +1557,7 @@
 
   function cleanItemName(text) {
     return cleanStructuredSegment(stripDateText(text)
-      .replace(new RegExp(`(\\d+(?:\\.\\d+)?|[零一二两三四五六七八九十]+)\\s*(?:${UNIT_PATTERN})?`, "g"), ""));
+      .replace(new RegExp(`(\\d+(?:\\.\\d+)?|半|一半|[零一二两三四五六七八九十]+)\\s*(?:${UNIT_PATTERN})?`, "g"), ""));
   }
 
   function pushNameCandidate(candidates, text) {
@@ -1125,6 +1598,11 @@
     return candidates[0] || "";
   }
 
+  /**
+   * Parse one quick-record sentence into a structured, reviewable action. This is read-only and never mutates inventory.
+   * @param {string} rawInput
+   * @returns {ParseResult|null}
+   */
   function parseQuickInput(rawInput) {
     const raw = String(rawInput || "").trim();
     if (!raw) return null;
@@ -1170,6 +1648,13 @@
     };
   }
 
+  // ===== inventory mutations: stock, batches, item metadata =====
+
+  /**
+   * Add stock to an item, creating or merging a batch and writing an undoable log.
+   * @param {HomeStockItem} item
+   * @param {number|string} quantity
+   */
   function addStock(item, quantity, { unit = "", expiryDate = "", purchaseDate = "", location = "", notes = "", rawInput = "", parsedResult = null, action = "add" } = {}) {
     const qty = asNumber(quantity, 0);
     if (qty <= 0) throw new Error("增加数量必须大于 0");
@@ -1204,7 +1689,6 @@
     }
 
     syncItemQty(item);
-    const after = snapshotForUndo();
     addLog({
       rawInput,
       parsedResult,
@@ -1214,17 +1698,28 @@
       quantityChange: qty,
       unit: item.unit,
       beforeSnapshot: before,
-      afterSnapshot: after
     });
     saveState();
     ensureAutoShoppingList();
   }
 
-  function reduceStockFEFO(item, quantity, { rawInput = "", parsedResult = null, action = "reduce" } = {}) {
+  /**
+   * Reduce stock using FEFO order; prompts before overdraw unless allowed.
+   * @param {HomeStockItem} item
+   * @param {number|string} quantity
+   */
+  async function reduceStockFEFO(item, quantity, { rawInput = "", parsedResult = null, action = "reduce", allowOverdraw = false } = {}) {
     const qty = asNumber(quantity, 0);
     if (qty <= 0) throw new Error("减少数量必须大于 0");
-    if (totalQty(item) < qty) {
-      if (!confirm(`当前库存只有 ${formatQty(totalQty(item))}${item.unit || ""}，仍然要扣到 0 吗？`)) return;
+    if (totalQty(item) < qty && !allowOverdraw) {
+      const ok = await openConfirmModal({
+        title: "库存不足",
+        message: `当前库存只有 ${formatQty(totalQty(item))}${item.unit || ""}，仍然要扣到 0 吗？`,
+        detail: "确认后会按 FEFO 顺序扣减现有批次，最多扣到 0。",
+        confirmText: "仍然扣减",
+        danger: true
+      });
+      if (!ok) return false;
     }
 
     const before = snapshotForUndo();
@@ -1247,7 +1742,6 @@
     }
 
     syncItemQty(item);
-    const after = snapshotForUndo();
     addLog({
       rawInput,
       parsedResult,
@@ -1257,24 +1751,24 @@
       quantityChange: -Math.min(qty, qty - remaining),
       unit: item.unit,
       beforeSnapshot: before,
-      afterSnapshot: after
     });
     saveState();
     ensureAutoShoppingList();
+    return true;
   }
 
-  function setRemaining(item, quantity, { rawInput = "", parsedResult = null, action = "setRemaining" } = {}) {
+  async function setRemaining(item, quantity, { rawInput = "", parsedResult = null, action = "setRemaining" } = {}) {
     const target = Math.max(0, asNumber(quantity, 0));
     const current = totalQty(item);
     const diff = target - current;
-    if (Math.abs(diff) < 0.000001) return;
+    if (Math.abs(diff) < 0.000001) return true;
 
     if (diff > 0) {
       addStock(item, diff, { unit: item.unit, rawInput, parsedResult, action });
-      return;
+      return true;
     }
 
-    reduceStockFEFO(item, Math.abs(diff), { rawInput, parsedResult, action });
+    return await reduceStockFEFO(item, Math.abs(diff), { rawInput, parsedResult, action });
   }
 
   function setItemExpiry(item, expiryDate, { rawInput = "", parsedResult = null } = {}) {
@@ -1304,7 +1798,6 @@
     batch.updatedAt = nowISO();
     syncItemQty(item);
 
-    const after = snapshotForUndo();
     addLog({
       rawInput,
       parsedResult,
@@ -1314,12 +1807,12 @@
       quantityChange: 0,
       unit: item.unit,
       beforeSnapshot: before,
-      afterSnapshot: after
     });
     saveState();
   }
 
   function createItemFromFields(fields) {
+    const before = snapshotForUndo();
     const qty = asNumber(fields.currentQuantity, 0);
     const item = {
       id: uid("item"),
@@ -1357,6 +1850,16 @@
       });
     }
     state.items.unshift(item);
+    addLog({
+      rawInput: "新增物品表单",
+      parsedResult: { item },
+      action: "addItem",
+      itemId: item.id,
+      itemName: item.name,
+      quantityChange: qty,
+      unit: item.unit,
+      beforeSnapshot: before
+    });
     saveState();
     ensureAutoShoppingList();
     return item;
@@ -1365,6 +1868,21 @@
   function updateItemFromFields(item, fields) {
     const before = snapshotForUndo();
     const oldQty = totalQty(item);
+    const beforeMeta = {
+      name: item.name,
+      aliases: clone(item.aliases || []),
+      category: item.category || "",
+      brand: item.brand || "",
+      spec: item.spec || "",
+      unit: item.unit || "",
+      minStock: asNumber(item.minStock, 0),
+      expiryReminderDays: asNumber(item.expiryReminderDays, 7),
+      expiryReminderEnabled: item.expiryReminderEnabled !== false,
+      location: item.location || "",
+      barcode: item.barcode || "",
+      notes: item.notes || ""
+    };
+
     item.name = fields.name.trim();
     item.aliases = String(fields.aliases || "").split(/[,，]/).map(s => s.trim()).filter(Boolean);
     item.category = fields.category || "其他";
@@ -1401,6 +1919,7 @@
           item.batches.push(batch);
         }
         batch.quantity = asNumber(batch.quantity, 0) + diff;
+        batch.updatedAt = nowISO();
       } else {
         let remaining = Math.abs(diff);
         const batches = (item.batches || []).filter(b => asNumber(b.quantity, 0) > 0).sort((a, b) => {
@@ -1412,26 +1931,41 @@
           if (remaining <= 0) break;
           const used = Math.min(asNumber(batch.quantity, 0), remaining);
           batch.quantity = asNumber(batch.quantity, 0) - used;
+          batch.updatedAt = nowISO();
           remaining -= used;
         }
       }
     }
     syncItemQty(item);
 
-    const after = snapshotForUndo();
-    if (Math.abs(diff) > 0.000001) {
-      addLog({
-        rawInput: "编辑物品表单",
-        parsedResult: { beforeQuantity: oldQty, afterQuantity: targetQty },
-        action: "editItem",
-        itemId: item.id,
-        itemName: item.name,
-        quantityChange: diff,
-        unit: item.unit,
-        beforeSnapshot: before,
-        afterSnapshot: after
-      });
-    }
+    addLog({
+      rawInput: "编辑物品表单",
+      parsedResult: {
+        before: beforeMeta,
+        after: {
+          name: item.name,
+          aliases: clone(item.aliases || []),
+          category: item.category || "",
+          brand: item.brand || "",
+          spec: item.spec || "",
+          unit: item.unit || "",
+          minStock: asNumber(item.minStock, 0),
+          expiryReminderDays: asNumber(item.expiryReminderDays, 7),
+          expiryReminderEnabled: item.expiryReminderEnabled !== false,
+          location: item.location || "",
+          barcode: item.barcode || "",
+          notes: item.notes || ""
+        },
+        beforeQuantity: oldQty,
+        afterQuantity: totalQty(item)
+      },
+      action: "editItem",
+      itemId: item.id,
+      itemName: item.name,
+      quantityChange: diff,
+      unit: item.unit,
+      beforeSnapshot: before
+    });
 
     saveState();
     ensureAutoShoppingList();
@@ -1439,36 +1973,35 @@
 
   function addToShoppingList({ item = null, itemName = "", suggestedQuantity = 1, unit = "", reason = "手动加入", status = "待买" }) {
     const before = snapshotForUndo();
-    const row = {
-      id: uid("shop"),
-      householdId: state.householdId,
-      userId: state.userId,
-      itemId: item?.id || "",
-      itemName: item?.name || itemName,
-      suggestedQuantity: asNumber(suggestedQuantity, 1),
-      unit: unit || item?.unit || "",
+    const result = upsertShoppingListRow({
+      item,
+      itemName,
+      suggestedQuantity,
+      unit,
       reason,
       status,
-      createdAt: nowISO(),
-      updatedAt: nowISO()
-    };
-    state.shoppingList.unshift(row);
-    const after = snapshotForUndo();
+      mergeMode: "add"
+    });
+
     addLog({
       rawInput: reason,
-      parsedResult: row,
+      parsedResult: {
+        row: result.row,
+        created: result.created,
+        mergeStrategy: "same pending item: add suggestedQuantity"
+      },
       action: "addToShopping",
-      itemId: row.itemId,
-      itemName: row.itemName,
-      quantityChange: 0,
-      unit: row.unit,
-      beforeSnapshot: before,
-      afterSnapshot: after
+      itemId: result.row.itemId,
+      itemName: result.row.itemName,
+      quantityChange: result.created ? asNumber(result.row.suggestedQuantity, 0) : asNumber(suggestedQuantity, 1),
+      unit: result.row.unit,
+      beforeSnapshot: before
     });
     saveState();
+    return result.row;
   }
 
-  function applyParsed(parsed, selectedItemId = "") {
+  async function applyParsed(parsed, selectedItemId = "") {
     const itemId = selectedItemId || parsed.itemId || "";
     let item = itemId ? getItemById(itemId) : null;
 
@@ -1505,20 +2038,22 @@
       expiryDate
     };
 
+    let completed = true;
     if (parsed.action === "add") {
       addStock(item, quantity, { unit, expiryDate, rawInput: parsed.rawInput, parsedResult: enriched, action: "add" });
     } else if (parsed.action === "reduce") {
-      reduceStockFEFO(item, quantity, { rawInput: parsed.rawInput, parsedResult: enriched, action: "reduce" });
+      completed = await reduceStockFEFO(item, quantity, { rawInput: parsed.rawInput, parsedResult: enriched, action: "reduce" });
     } else if (parsed.action === "setRemaining") {
-      setRemaining(item, quantity, { rawInput: parsed.rawInput, parsedResult: enriched, action: "setRemaining" });
+      completed = await setRemaining(item, quantity, { rawInput: parsed.rawInput, parsedResult: enriched, action: "setRemaining" });
     } else if (parsed.action === "usedUp") {
-      setRemaining(item, 0, { rawInput: parsed.rawInput, parsedResult: enriched, action: "usedUp" });
+      completed = await setRemaining(item, 0, { rawInput: parsed.rawInput, parsedResult: enriched, action: "usedUp" });
     } else if (parsed.action === "setExpiry") {
       setItemExpiry(item, expiryDate, { rawInput: parsed.rawInput, parsedResult: enriched });
     } else if (parsed.action === "addToShopping") {
       addToShoppingList({ item, suggestedQuantity: quantity || 1, unit, reason: `语音/文字输入：${parsed.rawInput}` });
     }
 
+    if (!completed) return;
     pendingParse = null;
     $("#confirmArea").innerHTML = "";
     $("#quickText").value = "";
@@ -1526,10 +2061,103 @@
     render();
   }
 
+  // ===== render: home, inventory, shopping, logs, parser confirmation =====
+
+  function getParsedCandidateItems(parsed) {
+    const map = new Map();
+    if (parsed?.itemId) {
+      const exact = getItemById(parsed.itemId);
+      if (exact) map.set(exact.id, exact);
+    }
+    (parsed?.similarItemIds || []).forEach(id => {
+      const item = getItemById(id);
+      if (item) map.set(item.id, item);
+    });
+    return Array.from(map.values());
+  }
+
+  function renderCandidateItemsHtml(items, { title = "候选物品" } = {}) {
+    if (!items.length) return "";
+    return `
+      <div class="stack" style="margin-top:10px;">
+        <div class="tiny muted">${escapeHtml(title)}</div>
+        <div class="candidate-grid">
+          ${items.map(item => `
+            <div class="candidate-card">
+              <b>${escapeHtml(item.name)}</b>
+              <div class="tiny muted">当前库存：${formatQty(totalQty(item))}${escapeHtml(item.unit || "")}</div>
+              <div class="tiny muted">单位：${escapeHtml(item.unit || "-")} · 分类：${escapeHtml(item.category || "其他")}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function parseConfidenceLabel(parsed) {
+    if (parsed?.confidence === "exact") return "已匹配已有物品";
+    if (parsed?.confidence === "similar") return "找到相似物品";
+    return "可能是新物品";
+  }
+
+  function isUsableParse(parsed) {
+    return Boolean(parsed && parsed.rawInput && parsed.itemName && parsed.action);
+  }
+
+  function clearQuickPreview() {
+    const preview = $("#quickPreview");
+    if (!preview) return;
+    preview.hidden = true;
+    preview.innerHTML = "";
+  }
+
+  function renderQuickPreview(parsed) {
+    const preview = $("#quickPreview");
+    if (!preview || !isUsableParse(parsed)) {
+      clearQuickPreview();
+      return;
+    }
+
+    const candidates = getParsedCandidateItems(parsed);
+    preview.innerHTML = `
+      <div class="row between wrap">
+        <b>解析预览</b>
+        <span class="pill ${parsed.confidence === "exact" ? "ok" : parsed.confidence === "similar" ? "warn" : ""}">${escapeHtml(parseConfidenceLabel(parsed))}</span>
+      </div>
+      <div class="preview-grid">
+        <div class="preview-cell"><div class="tiny muted">动作</div><b>${escapeHtml(parsed.actionLabel || parsed.action)}</b></div>
+        <div class="preview-cell"><div class="tiny muted">物品</div><b>${escapeHtml(parsed.itemName)}</b></div>
+        <div class="preview-cell"><div class="tiny muted">数量</div><b>${parsed.quantity === null || parsed.quantity === undefined ? "-" : `${formatQty(parsed.quantity)}${escapeHtml(parsed.unit || "")}`}</b></div>
+        <div class="preview-cell"><div class="tiny muted">单位</div><b>${escapeHtml(parsed.unit || "-")}</b></div>
+        <div class="preview-cell"><div class="tiny muted">过期日</div><b>${escapeHtml(parsed.expiryDate || "-")}</b></div>
+        <div class="preview-cell"><div class="tiny muted">分类</div><b>${escapeHtml(parsed.category || "其他")}</b></div>
+      </div>
+      ${isPastDate(parsed.expiryDate) ? pastDateWarningHtml(parsed.expiryDate) : ""}
+      ${candidates.length ? renderCandidateItemsHtml(candidates, { title: "可能匹配的已有物品" }) : ""}
+      <div class="tiny muted">预览不会写入库存，点击“解析并确认”后仍需确认。</div>
+    `;
+    preview.hidden = false;
+  }
+
+  function scheduleQuickPreview() {
+    clearTimeout(quickPreviewTimer);
+    quickPreviewTimer = setTimeout(() => {
+      const value = $("#quickText")?.value || "";
+      const parsed = parseQuickInput(value);
+      if (!isUsableParse(parsed)) {
+        clearQuickPreview();
+        return;
+      }
+      renderQuickPreview(parsed);
+    }, 300);
+  }
+
   function renderConfirm(parsed) {
     const exactItem = parsed.itemId ? getItemById(parsed.itemId) : null;
     const similar = (parsed.similarItemIds || []).map(id => getItemById(id)).filter(Boolean);
-    const needsQuantity = ["add", "reduce", "setRemaining"].includes(parsed.action);
+    const candidates = getParsedCandidateItems(parsed);
+    const hasCandidateSelect = Boolean(exactItem || similar.length);
+    const needsQuantity = ["add", "reduce", "setRemaining", "addToShopping"].includes(parsed.action);
     const needsExpiry = ["add", "setExpiry"].includes(parsed.action);
 
     const existingOptions = [
@@ -1550,22 +2178,32 @@
 
         <div class="grid desktop-two" style="margin-top:12px;">
           <label>物品
-            ${exactItem || similar.length
+            ${hasCandidateSelect
               ? `<select id="confirmItemSelect">${existingOptions}</select>`
               : `<input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">`
             }
           </label>
 
-          ${(!exactItem && !similar.length) ? `
+          ${hasCandidateSelect ? `
+          <div id="confirmCreateFields" class="grid two" style="display:none;">
+            <label>新物品名称
+              <input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">
+            </label>
+            <label>新物品分类
+              <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
+            </label>
+          </div>` : `
           <label>分类
             <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
-          </label>` : ""}
+          </label>`}
 
           ${needsQuantity ? `<label>数量<input id="confirmQty" type="number" step="0.01" min="0" value="${escapeHtml(parsed.quantity ?? 1)}"></label>` : ""}
           <label>单位<input id="confirmUnit" value="${escapeHtml(parsed.unit || exactItem?.unit || "")}" placeholder="盒 / 包 / 个 / 斤"></label>
           ${needsExpiry ? `<label>过期日<input id="confirmExpiry" type="date" value="${escapeHtml(parsed.expiryDate || "")}"></label>` : ""}
         </div>
 
+        ${needsExpiry ? pastDateWarningHtml(parsed.expiryDate) : ""}
+        ${candidates.length ? renderCandidateItemsHtml(candidates, { title: "候选物品，可在上方选择已有物品或创建新物品" }) : ""}
         ${similar.length && !exactItem ? `<div class="tiny warn-text" style="margin-top:10px;">找到相似物品。请选择已有物品，或选择“创建新物品”。</div>` : ""}
         ${!exactItem && !similar.length ? `<div class="tiny warn-text" style="margin-top:10px;">没有找到物品。确认后会新增物品，并使用你选择的分类。</div>` : ""}
 
@@ -1576,17 +2214,31 @@
       </div>
     `;
 
+    const updateCandidateSelection = () => {
+      const selectedId = $("#confirmItemSelect")?.value || "";
+      const selected = selectedId ? getItemById(selectedId) : null;
+      const createFields = $("#confirmCreateFields");
+      if (createFields) createFields.style.display = selectedId ? "none" : "grid";
+      if (selected?.unit && $("#confirmUnit") && !$("#confirmUnit").value) {
+        $("#confirmUnit").value = selected.unit;
+      }
+    };
+
+    $("#confirmItemSelect")?.addEventListener("change", updateCandidateSelection);
+    updateCandidateSelection();
+    bindExpiryWarning("#confirmExpiry");
+
     $("#confirmCancelBtn").onclick = () => {
       pendingParse = null;
       $("#confirmArea").innerHTML = "";
     };
 
-    $("#confirmApplyBtn").onclick = () => {
+    $("#confirmApplyBtn").onclick = async () => {
       try {
         const selectedId = $("#confirmItemSelect")?.value || "";
-        applyParsed(parsed, selectedId);
+        await applyParsed(parsed, selectedId);
       } catch (err) {
-        alert(err.message || err);
+        toast(err.message || String(err));
       }
     };
 
@@ -1594,12 +2246,12 @@
   }
 
   function render() {
-    ensureAutoShoppingList();
     renderCategoryFilter();
     renderHome();
     renderInventory();
     renderShopping();
     renderLogs();
+    bindExampleShortcuts();
     updateUndoState();
   }
 
@@ -1608,6 +2260,32 @@
     const current = select.value || "";
     select.innerHTML = `<option value="">全部分类</option>` + CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join("");
     select.value = current;
+  }
+
+  function quickStartExamplesHtml() {
+    const examples = ["牛奶加 2 盒", "鸡蛋吃了 2 个", "大米还剩 3 斤"];
+    return `
+      <div class="stack">
+        <div>
+          <b>快速开始</b>
+          <div class="tiny muted">可以先点一个示例填入快速记录，再按“解析并确认”。不会自动提交。</div>
+        </div>
+        <div class="row wrap">
+          ${examples.map(text => `<button class="small ghost" type="button" data-example-quick="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindExampleShortcuts() {
+    $$("[data-example-quick]").forEach(btn => btn.onclick = () => {
+      navigate("home");
+      $("#quickText").value = btn.dataset.exampleQuick || "";
+      $("#quickText").focus();
+      pendingParse = null;
+      $("#confirmArea").innerHTML = "";
+      scheduleQuickPreview();
+    });
   }
 
   function renderHome() {
@@ -1630,7 +2308,7 @@
         </div>
         <div class="tiny muted">最低库存：${formatQty(item.minStock)}${escapeHtml(item.unit || "")} · ${escapeHtml(item.location || "未设置位置")}</div>
       </div>
-    `).join("") : `<div class="empty">暂无低库存物品</div>`;
+    `).join("") : `<div class="empty">${state.items.length ? "暂无低库存物品" : quickStartExamplesHtml()}</div>`;
 
     $("#homeExpiring").innerHTML = expiring.length ? expiring.slice(0, 5).map(({ item, batch, days }) => `
       <div class="batch-row">
@@ -1663,24 +2341,47 @@
     `).join("") : `<div class="empty">购物清单为空</div>`;
   }
 
+  function itemMatchesInventorySearch(item, searchText) {
+    if (!searchText) return true;
+    const haystack = normalizeName([
+      item.name,
+      ...(Array.isArray(item.aliases) ? item.aliases : []),
+      item.brand,
+      item.spec,
+      item.category,
+      item.location
+    ].filter(Boolean).join(" "));
+    return haystack.includes(searchText);
+  }
+
   function renderInventory() {
+    const search = normalizeName($("#inventorySearch")?.value || "");
     const category = $("#categoryFilter").value;
     const onlyLow = $("#filterLow").checked;
     const onlyExpiring = $("#filterExpiring").checked;
     const onlyExpired = $("#filterExpired").checked;
 
     let items = [...state.items];
+    if (search) items = items.filter(item => itemMatchesInventorySearch(item, search));
     if (category) items = items.filter(item => item.category === category);
     if (onlyLow) items = items.filter(isLowStockItem);
     if (onlyExpiring) items = items.filter(isExpiringItem);
     if (onlyExpired) items = items.filter(isExpiredItem);
 
     if (!items.length) {
-      $("#inventoryList").innerHTML = `<div class="empty">没有符合条件的物品。点击“新增物品”开始记录。</div>`;
+      const hasFilters = Boolean(search || category || onlyLow || onlyExpiring || onlyExpired);
+      $("#inventoryList").innerHTML = state.items.length
+        ? `<div class="empty">没有符合条件的物品。可以清空搜索或调整筛选条件。</div>`
+        : `<div class="empty">${quickStartExamplesHtml()}</div>`;
+      bindExampleShortcuts();
       return;
     }
 
-    $("#inventoryList").innerHTML = items.map(item => renderItemCard(item)).join("");
+    const visibleItems = items.slice(0, inventoryRenderLimit);
+    const moreHtml = items.length > visibleItems.length
+      ? `<div class="empty"><div>仅展示前 ${visibleItems.length} 条，共 ${items.length} 条。</div><button class="small ghost" type="button" id="loadMoreInventoryBtn" style="margin-top:10px;">继续加载更多</button></div>`
+      : "";
+    $("#inventoryList").innerHTML = visibleItems.map(item => renderItemCard(item)).join("") + moreHtml;
 
     $$("#inventoryList [data-expand]").forEach(btn => btn.onclick = () => {
       const id = btn.dataset.expand;
@@ -1701,6 +2402,10 @@
         toast("已加入购物清单");
         render();
       }
+    });
+    $("#loadMoreInventoryBtn")?.addEventListener("click", () => {
+      inventoryRenderLimit += 80;
+      renderInventory();
     });
   }
 
@@ -1798,7 +2503,12 @@
       return;
     }
 
-    $("#shoppingList").innerHTML = rows.map(row => `
+    const visibleRows = rows.slice(0, shoppingRenderLimit);
+    const moreHtml = rows.length > visibleRows.length
+      ? `<div class="empty"><div>仅展示前 ${visibleRows.length} 条，共 ${rows.length} 条。</div><button class="small ghost" type="button" id="loadMoreShoppingBtn" style="margin-top:10px;">继续加载更多</button></div>`
+      : "";
+
+    $("#shoppingList").innerHTML = visibleRows.map(row => `
       <div class="card tight">
         <div class="row between wrap">
           <div>
@@ -1815,12 +2525,16 @@
           <button class="small danger" data-shopping-delete="${row.id}">删除</button>
         </div>
       </div>
-    `).join("");
+    `).join("") + moreHtml;
 
     $$("#shoppingList [data-shopping-bought]").forEach(btn => btn.onclick = () => markShoppingBought(btn.dataset.shoppingBought));
     $$("#shoppingList [data-shopping-ignore]").forEach(btn => btn.onclick = () => setShoppingStatus(btn.dataset.shoppingIgnore, "忽略"));
     $$("#shoppingList [data-shopping-pending]").forEach(btn => btn.onclick = () => setShoppingStatus(btn.dataset.shoppingPending, "待买"));
     $$("#shoppingList [data-shopping-delete]").forEach(btn => btn.onclick = () => deleteShopping(btn.dataset.shoppingDelete));
+    $("#loadMoreShoppingBtn")?.addEventListener("click", () => {
+      shoppingRenderLimit += 80;
+      renderShopping();
+    });
   }
 
   function renderLogs() {
@@ -1829,7 +2543,12 @@
       return;
     }
 
-    $("#logsList").innerHTML = state.logs.slice(0, 120).map(log => `
+    const visibleLogs = state.logs.slice(0, logsRenderLimit);
+    const moreHtml = state.logs.length > visibleLogs.length
+      ? `<div class="empty"><div>仅展示前 ${visibleLogs.length} 条，共 ${state.logs.length} 条。</div><button class="small ghost" type="button" id="loadMoreLogsBtn" style="margin-top:10px;">继续加载更多</button></div>`
+      : "";
+
+    $("#logsList").innerHTML = visibleLogs.map(log => `
       <div class="log-row" style="margin-top:10px;">
         <div class="row between wrap">
           <b>${escapeHtml(log.actionLabel || log.action)}</b>
@@ -1839,24 +2558,112 @@
         <div class="tiny muted">原始输入：${escapeHtml(log.rawInput || "-")}</div>
         ${log.undone ? `<div class="tiny warn-text">这条操作已撤销</div>` : ""}
       </div>
-    `).join("");
+    `).join("") + moreHtml;
+
+    $("#loadMoreLogsBtn")?.addEventListener("click", () => {
+      logsRenderLimit += 80;
+      renderLogs();
+    });
   }
 
+
   function updateUndoState() {
-    const latest = state.logs.find(log => log.action !== "undo" && !log.undone && log.undoStateBefore);
+    const latest = state.logs.find(hasUsableUndoSnapshot);
     $("#undoBtn").disabled = !latest;
   }
 
-  function openModal(html) {
-    $("#modal").innerHTML = html;
+  // ===== modal: accessible dialog lifecycle and confirmations =====
+
+  function focusFirstModalElement() {
+    const modal = $("#modal");
+    const focusable = modal.querySelector(
+      "input:not([type='hidden']):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex='-1'])"
+    );
+    (focusable || modal).focus({ preventScroll: true });
+  }
+
+  function openModal(html, { onCancel = null, dangerous = false, closeOnEscape = true, closeOnBackdrop = true } = {}) {
+    previousModalFocus = document.activeElement;
+    activeModalCancel = onCancel;
+    activeModalOptions = {
+      dangerous: Boolean(dangerous),
+      closeOnEscape: closeOnEscape && !dangerous,
+      closeOnBackdrop: closeOnBackdrop && !dangerous
+    };
+
+    const modal = $("#modal");
+    modal.innerHTML = html;
+    const title = modal.querySelector("h2");
+    if (title) {
+      title.id = title.id || "modalTitle";
+      modal.setAttribute("aria-labelledby", title.id);
+    } else {
+      modal.removeAttribute("aria-labelledby");
+      modal.setAttribute("aria-label", "弹窗");
+    }
+
     $("#modalBackdrop").classList.add("show");
     $("#modalBackdrop").setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(focusFirstModalElement);
   }
 
   function closeModal() {
+    const onCancel = activeModalCancel;
+    activeModalCancel = null;
+    activeModalOptions = { closeOnEscape: true, closeOnBackdrop: true, dangerous: false };
     $("#modalBackdrop").classList.remove("show");
     $("#modalBackdrop").setAttribute("aria-hidden", "true");
     $("#modal").innerHTML = "";
+    document.body.classList.remove("modal-open");
+    if (previousModalFocus && typeof previousModalFocus.focus === "function") {
+      try { previousModalFocus.focus({ preventScroll: true }); } catch (err) {}
+    }
+    previousModalFocus = null;
+    if (typeof onCancel === "function") onCancel();
+  }
+
+  function closeModalSilently() {
+    activeModalCancel = null;
+    closeModal();
+  }
+
+  function openConfirmModal({ title = "确认操作", message = "", detail = "", confirmText = "确定", cancelText = "取消", danger = false } = {}) {
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        activeModalCancel = null;
+        closeModal();
+        resolve(value);
+      };
+
+      openModal(`
+        <h2>${escapeHtml(title)}</h2>
+        <div class="stack">
+          ${message ? `<div class="small-text">${escapeHtml(message)}</div>` : ""}
+          ${detail ? `<div class="tiny ${danger ? "warn-text" : "muted"}">${escapeHtml(detail)}</div>` : ""}
+          <div class="row wrap">
+            <button class="${danger ? "danger" : "primary"}" type="button" id="dialogConfirmBtn">${escapeHtml(confirmText)}</button>
+            <button class="ghost" type="button" id="dialogCancelBtn">${escapeHtml(cancelText)}</button>
+          </div>
+        </div>
+      `, {
+        dangerous: danger,
+        closeOnEscape: !danger,
+        closeOnBackdrop: !danger,
+        onCancel: () => {
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        }
+      });
+
+      $("#dialogCancelBtn").onclick = () => finish(false);
+      $("#dialogConfirmBtn").onclick = () => finish(true);
+    });
   }
 
   function itemFormHtml(item = null) {
@@ -1897,7 +2704,7 @@
       const form = new FormData(event.currentTarget);
       const fields = Object.fromEntries(form.entries());
       fields.expiryReminderEnabled = form.get("expiryReminderEnabled") === "on";
-      if (!fields.name?.trim()) return alert("请填写名称");
+      if (!fields.name?.trim()) return toast("请填写名称");
       if (item) updateItemFromFields(item, fields);
       else createItemFromFields(fields);
       closeModal();
@@ -1914,7 +2721,8 @@
         <div class="grid desktop-two">
           <label>数量<input name="quantity" type="number" step="0.01" min="0" required value="${escapeHtml(batch?.quantity ?? 1)}"></label>
           <label>购买日期<input name="purchaseDate" type="date" value="${escapeHtml(batch?.purchaseDate || todayISO())}"></label>
-          <label>过期日期<input name="expiryDate" type="date" value="${escapeHtml(batch?.expiryDate || "")}"></label>
+          <label>过期日期<input id="batchExpiryDate" name="expiryDate" type="date" value="${escapeHtml(batch?.expiryDate || "")}"></label>
+          ${pastDateWarningHtml(batch?.expiryDate || "")}
           <label>存放位置<input name="location" value="${escapeHtml(batch?.location || item.location || "")}"></label>
         </div>
         <label>备注<textarea name="notes">${escapeHtml(batch?.notes || "")}</textarea></label>
@@ -1932,6 +2740,7 @@
     const batch = batchId ? getBatchById(item, batchId) : null;
     openModal(batchFormHtml(item, batch));
     $("#modalCancelBtn").onclick = closeModal;
+    bindExpiryWarning("#batchExpiryDate");
     $("#batchForm").onsubmit = (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
@@ -1948,8 +2757,7 @@
         batch.notes = fields.notes || "";
         batch.updatedAt = nowISO();
         syncItemQty(item);
-        const after = snapshotForUndo();
-        addLog({
+            addLog({
           rawInput: "编辑批次表单",
           parsedResult: fields,
           action: "editBatch",
@@ -1958,7 +2766,6 @@
           quantityChange: asNumber(fields.quantity, 0) - oldQty,
           unit: item.unit,
           beforeSnapshot: before,
-          afterSnapshot: after
         });
       } else {
         const newBatch = {
@@ -1975,8 +2782,7 @@
         };
         item.batches.push(newBatch);
         syncItemQty(item);
-        const after = snapshotForUndo();
-        addLog({
+            addLog({
           rawInput: "新增批次表单",
           parsedResult: newBatch,
           action: "addBatch",
@@ -1985,7 +2791,6 @@
           quantityChange: asNumber(newBatch.quantity, 0),
           unit: item.unit,
           beforeSnapshot: before,
-          afterSnapshot: after
         });
       }
 
@@ -1997,14 +2802,21 @@
     };
   }
 
-  function deleteItem(itemId) {
+  async function deleteItem(itemId) {
     const item = getItemById(itemId);
     if (!item) return;
-    if (!confirm(`确定删除“${item.name}”吗？`)) return;
+    const ok = await openConfirmModal({
+      title: "删除物品",
+      message: `确定删除“${item.name}”吗？`,
+      detail: "相关购物清单项也会一并删除。此操作可以通过最近操作撤销。",
+      confirmText: "删除",
+      danger: true
+    });
+    if (!ok) return;
+
     const before = snapshotForUndo();
     state.items = state.items.filter(row => row.id !== itemId);
     state.shoppingList = state.shoppingList.filter(row => row.itemId !== itemId);
-    const after = snapshotForUndo();
     addLog({
       rawInput: "删除物品",
       parsedResult: { item },
@@ -2014,24 +2826,29 @@
       quantityChange: -totalQty(item),
       unit: item.unit,
       beforeSnapshot: before,
-      afterSnapshot: after
     });
     saveState();
     render();
     toast("已删除");
   }
 
-  function deleteBatch(itemId, batchId) {
+  async function deleteBatch(itemId, batchId) {
     const item = getItemById(itemId);
     if (!item) return;
     const batch = getBatchById(item, batchId);
     if (!batch) return;
-    if (!confirm("确定删除这个批次吗？")) return;
+    const ok = await openConfirmModal({
+      title: "删除批次",
+      message: "确定删除这个批次吗？",
+      detail: `将减少 ${formatQty(batch.quantity)}${item.unit || ""} 的库存。此操作可以通过最近操作撤销。`,
+      confirmText: "删除批次",
+      danger: true
+    });
+    if (!ok) return;
 
     const before = snapshotForUndo();
     item.batches = (item.batches || []).filter(row => row.id !== batchId);
     syncItemQty(item);
-    const after = snapshotForUndo();
     addLog({
       rawInput: "删除批次",
       parsedResult: { batch },
@@ -2041,9 +2858,9 @@
       quantityChange: -asNumber(batch.quantity, 0),
       unit: item.unit,
       beforeSnapshot: before,
-      afterSnapshot: after
     });
     saveState();
+    ensureAutoShoppingList();
     render();
     toast("已删除批次");
   }
@@ -2051,40 +2868,115 @@
   function quickAdjust(itemId, action) {
     const item = getItemById(itemId);
     if (!item) return;
-    const qtyRaw = prompt(`${action === "add" ? "增加" : "减少"}多少${item.unit || ""}？`, "1");
-    if (qtyRaw === null) return;
-    const qty = asNumber(qtyRaw, 0);
-    if (qty <= 0) return alert("数量必须大于 0");
-    try {
-      if (action === "add") {
-        const expiryDate = prompt("过期日期，可留空，格式 YYYY-MM-DD", "");
-        addStock(item, qty, { unit: item.unit, expiryDate: expiryDate || "", rawInput: `手动增加 ${qty}${item.unit || ""}`, parsedResult: { source: "quickAdjust" }, action: "add" });
-      } else {
-        reduceStockFEFO(item, qty, { rawInput: `手动减少 ${qty}${item.unit || ""}`, parsedResult: { source: "quickAdjust" }, action: "reduce" });
+    const isAdd = action === "add";
+    const title = isAdd ? "快速增加库存" : "快速减少库存";
+    const actionLabel = isAdd ? "增加" : "减少";
+    const shortcuts = [1, 2, 5];
+
+    openModal(`
+      <h2>${title}</h2>
+      <div class="tiny muted" style="margin-bottom:12px;">${escapeHtml(item.name)} · 当前 ${formatQty(totalQty(item))}${escapeHtml(item.unit || "")}</div>
+      <form id="quickAdjustForm" class="grid">
+        <label>${actionLabel}数量
+          <input id="quickAdjustQty" name="quantity" type="number" step="0.01" min="0" value="1">
+        </label>
+        <div class="row wrap">
+          ${shortcuts.map(qty => `<button class="small ghost" type="button" data-quick-qty="${qty}">${isAdd ? "+" : "-"}${qty}</button>`).join("")}
+        </div>
+        ${isAdd ? `<label>过期日期，可留空<input id="quickAdjustExpiryDate" name="expiryDate" type="date"></label>${pastDateWarningHtml("")}` : ""}
+        <div class="row wrap">
+          <button class="primary" type="submit">${actionLabel}库存</button>
+          <button class="ghost" type="button" id="modalCancelBtn">取消</button>
+        </div>
+      </form>
+    `);
+
+    $("#modalCancelBtn").onclick = closeModal;
+    bindExpiryWarning("#quickAdjustExpiryDate");
+    $$("[data-quick-qty]").forEach(btn => btn.onclick = () => {
+      $("#quickAdjustQty").value = btn.dataset.quickQty || "1";
+    });
+
+    $("#quickAdjustForm").onsubmit = async event => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const qty = asNumber(form.get("quantity"), 0);
+      if (qty <= 0) {
+        toast("数量必须大于 0");
+        return;
       }
-      render();
-      toast("已更新库存");
-    } catch (err) {
-      alert(err.message || err);
-    }
+
+      try {
+        if (isAdd) {
+          addStock(item, qty, {
+            unit: item.unit,
+            expiryDate: form.get("expiryDate") || "",
+            rawInput: `手动增加 ${qty}${item.unit || ""}`,
+            parsedResult: { source: "quickAdjust" },
+            action: "add"
+          });
+        } else {
+          const completed = await reduceStockFEFO(item, qty, {
+            rawInput: `手动减少 ${qty}${item.unit || ""}`,
+            parsedResult: { source: "quickAdjust" },
+            action: "reduce"
+          });
+          if (!completed) return;
+        }
+        closeModal();
+        render();
+        toast("已更新库存");
+      } catch (err) {
+        toast(err.message || String(err));
+      }
+    };
   }
 
   function setShoppingStatus(id, status) {
     const row = state.shoppingList.find(item => item.id === id);
-    if (!row) return;
+    if (!row || row.status === status) return;
+
+    const before = snapshotForUndo();
+    const previousStatus = row.status;
     row.status = status;
     row.updatedAt = nowISO();
+
+    addLog({
+      rawInput: `购物清单状态：${previousStatus} -> ${status}`,
+      parsedResult: { row, previousStatus, status },
+      action: "editShoppingStatus",
+      itemId: row.itemId,
+      itemName: row.itemName,
+      quantityChange: 0,
+      unit: row.unit,
+      beforeSnapshot: before
+    });
     saveState();
     render();
   }
 
   function deleteShopping(id) {
-    state.shoppingList = state.shoppingList.filter(row => row.id !== id);
+    const row = state.shoppingList.find(item => item.id === id);
+    if (!row) return;
+
+    const before = snapshotForUndo();
+    state.shoppingList = state.shoppingList.filter(item => item.id !== id);
+
+    addLog({
+      rawInput: "删除购物清单项",
+      parsedResult: { row },
+      action: "deleteShopping",
+      itemId: row.itemId,
+      itemName: row.itemName,
+      quantityChange: 0,
+      unit: row.unit,
+      beforeSnapshot: before
+    });
     saveState();
     render();
   }
 
-  function markShoppingBought(id) {
+  async function markShoppingBought(id) {
     const row = state.shoppingList.find(item => item.id === id);
     if (!row) return;
 
@@ -2095,7 +2987,14 @@
     }
 
     if (!item) {
-      if (!confirm(`没有找到“${row.itemName}”对应的库存物品。现在创建吗？`)) return;
+      const ok = await openConfirmModal({
+        title: "创建库存物品",
+        message: `没有找到“${row.itemName}”对应的库存物品。现在创建吗？`,
+        detail: "创建后会把本次购买数量转入库存。",
+        confirmText: "创建并继续"
+      });
+      if (!ok) return;
+
       item = createItemFromFields({
         name: row.itemName,
         aliases: "",
@@ -2112,38 +3011,77 @@
         notes: "由购物清单创建"
       });
       row.itemId = item.id;
-    }
-
-    const qtyRaw = prompt("这次买了多少？", formatQty(row.suggestedQuantity || 1));
-    if (qtyRaw === null) return;
-    const qty = asNumber(qtyRaw, 0);
-    if (qty <= 0) return alert("数量必须大于 0");
-    const expiryDate = prompt("过期日期，可留空，格式 YYYY-MM-DD", "");
-
-    try {
-      addStock(item, qty, {
-        unit: row.unit || item.unit,
-        expiryDate: expiryDate || "",
-        rawInput: `购物清单标记已买：${row.itemName}`,
-        parsedResult: row,
-        action: "shoppingBought"
-      });
-      row.status = "已买";
-      row.updatedAt = nowISO();
       saveState();
-      render();
-      toast("已转入库存");
-    } catch (err) {
-      alert(err.message || err);
     }
+
+    openModal(`
+      <h2>标记已买并入库</h2>
+      <div class="tiny muted" style="margin-bottom:12px;">${escapeHtml(row.itemName)} · 建议购买 ${formatQty(row.suggestedQuantity || 1)}${escapeHtml(row.unit || item.unit || "")}</div>
+      <form id="shoppingBoughtForm" class="grid">
+        <div class="grid two">
+          <label>实际购买数量<input name="quantity" type="number" step="0.01" min="0" value="${escapeHtml(formatQty(row.suggestedQuantity || 1))}"></label>
+          <label>单位<input name="unit" value="${escapeHtml(row.unit || item.unit || "")}" placeholder="盒 / 包 / 个"></label>
+        </div>
+        <label>过期日期，可留空<input id="shoppingBoughtExpiryDate" name="expiryDate" type="date"></label>
+        ${pastDateWarningHtml("")}
+        <label>备注<textarea name="notes" placeholder="例如：促销购买、品牌、门店"></textarea></label>
+        <div class="row wrap">
+          <button class="primary" type="submit">入库并标记已买</button>
+          <button class="ghost" type="button" id="modalCancelBtn">取消</button>
+        </div>
+      </form>
+    `);
+
+    $("#modalCancelBtn").onclick = closeModal;
+    bindExpiryWarning("#shoppingBoughtExpiryDate");
+    $("#shoppingBoughtForm").onsubmit = event => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const qty = asNumber(form.get("quantity"), 0);
+      if (qty <= 0) {
+        toast("数量必须大于 0");
+        return;
+      }
+
+      try {
+        addStock(item, qty, {
+          unit: form.get("unit") || row.unit || item.unit,
+          expiryDate: form.get("expiryDate") || "",
+          notes: form.get("notes") || "",
+          rawInput: `购物清单标记已买：${row.itemName}`,
+          parsedResult: {
+            ...row,
+            actualQuantity: qty,
+            unit: form.get("unit") || row.unit || item.unit,
+            notes: form.get("notes") || ""
+          },
+          action: "shoppingBought"
+        });
+        row.status = "已买";
+        row.updatedAt = nowISO();
+        saveState();
+        ensureAutoShoppingList();
+        closeModal();
+        render();
+        toast("已转入库存");
+      } catch (err) {
+        toast(err.message || String(err));
+      }
+    };
   }
 
-  function undoLatest() {
-    const latest = state.logs.find(log => log.action !== "undo" && !log.undone && log.undoStateBefore);
+  async function undoLatest() {
+    const latest = state.logs.find(hasUsableUndoSnapshot);
     if (!latest) return;
-    if (!confirm(`撤销最近一次操作：${latest.actionLabel || latest.action}？`)) return;
+    const ok = await openConfirmModal({
+      title: "撤销操作",
+      message: `撤销最近一次操作：${latest.actionLabel || latest.action}？`,
+      detail: "会恢复到该操作发生前的库存和购物清单状态。",
+      confirmText: "撤销",
+      danger: true
+    });
+    if (!ok) return;
 
-    const before = snapshotForUndo();
     state.items = clone(latest.undoStateBefore.items || []);
     state.shoppingList = clone(latest.undoStateBefore.shoppingList || []);
     latest.undone = true;
@@ -2155,21 +3093,19 @@
       itemId: latest.itemId,
       itemName: latest.itemName,
       quantityChange: -asNumber(latest.quantityChange, 0),
-      unit: latest.unit,
-      beforeSnapshot: before,
-      afterSnapshot: snapshotForUndo()
+      unit: latest.unit
     });
     saveState();
     render();
     toast("已撤销");
   }
 
-  function toast(message) {
+  function toast(message, { duration = 2500 } = {}) {
     const el = $("#toast");
     el.textContent = message;
     el.classList.add("show");
     clearTimeout(el._timer);
-    el._timer = setTimeout(() => el.classList.remove("show"), 1800);
+    el._timer = setTimeout(() => el.classList.remove("show"), duration);
   }
 
   function navigate(section) {
@@ -2178,6 +3114,8 @@
     $$(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === section));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // ===== speech: optional ASR endpoint with input-method fallback =====
 
   function initSpeech() {
     const voiceBtn = $("#voiceBtn");
@@ -2204,9 +3142,12 @@
       if (!value) return;
       $("#quickText").value = value;
       const parsed = parseQuickInput(value);
-      if (parsed) {
+      if (isUsableParse(parsed)) {
         pendingParse = parsed;
+        renderQuickPreview(parsed);
         renderConfirm(parsed);
+      } else {
+        clearQuickPreview();
       }
     };
 
@@ -2318,11 +3259,108 @@
     voiceBtn.addEventListener("touchcancel", stopRecording, { passive: false });
   }
 
+  function resetInventoryFilters() {
+    inventoryRenderLimit = 80;
+    if ($("#inventorySearch")) $("#inventorySearch").value = "";
+    if ($("#categoryFilter")) $("#categoryFilter").value = "";
+    if ($("#filterLow")) $("#filterLow").checked = false;
+    if ($("#filterExpiring")) $("#filterExpiring").checked = false;
+    if ($("#filterExpired")) $("#filterExpired").checked = false;
+  }
+
+  function exportBackup() {
+    compactUndoSnapshots();
+    const backup = {
+      schemaVersion: state.schemaVersion || 1,
+      householdId: state.householdId,
+      userId: state.userId,
+      items: clone(state.items),
+      shoppingList: clone(state.shoppingList),
+      logs: clone(state.logs),
+      createdAt: state.createdAt || nowISO(),
+      updatedAt: nowISO()
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `home-stock-voice-backup-${todayISO()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast("已导出备份");
+  }
+
+  function validateBackupPayload(payload) {
+    return migrateState(payload, { source: "import", requireArrays: true });
+  }
+
+
+  async function importBackupFile(file) {
+    if (!file) return;
+    let content = "";
+    try {
+      content = await file.text();
+      let payload;
+      try {
+        payload = JSON.parse(content);
+      } catch (parseErr) {
+        console.error("导入的 JSON 无法解析，当前数据未改变。原始文件内容如下：", content);
+        throw new Error("导入失败：JSON 格式无效，当前数据未改变。原始内容已打印到 console。");
+      }
+
+      const migrated = validateBackupPayload(payload);
+
+      const ok = await openConfirmModal({
+        title: "导入备份",
+        message: "导入会覆盖当前本地数据。",
+        detail: "已经完成格式校验。建议确认已经导出当前备份后再继续。",
+        confirmText: "覆盖并导入",
+        danger: true
+      });
+      if (!ok) return;
+
+      state = migrated;
+      compactUndoSnapshots();
+      ensureAutoShoppingList();
+      saveState();
+      expandedItems = new Set();
+      inventoryRenderLimit = 80;
+      shoppingRenderLimit = 80;
+      logsRenderLimit = 80;
+      render();
+      toast("导入成功");
+    } catch (err) {
+      if (content && !(err instanceof SyntaxError)) {
+        console.warn("导入失败，当前数据未改变。可核对原始文件内容：", content);
+      }
+      toast(err.message || "导入失败，请检查 JSON 文件；当前数据未改变");
+    } finally {
+      if ($("#importBackupInput")) $("#importBackupInput").value = "";
+    }
+  }
+
+  // ===== events: DOM wiring and delegated actions =====
+
+
   function bindEvents() {
+    $("#quickText").addEventListener("input", () => {
+      pendingParse = null;
+      $("#confirmArea").innerHTML = "";
+      if (!$("#quickText").value.trim()) {
+        clearTimeout(quickPreviewTimer);
+        clearQuickPreview();
+        return;
+      }
+      scheduleQuickPreview();
+    });
+
     $("#parseBtn").onclick = () => {
       const parsed = parseQuickInput($("#quickText").value);
-      if (!parsed) return toast("请先输入一句库存变化");
+      if (!isUsableParse(parsed)) return toast("请先输入一句可解析的库存变化");
       pendingParse = parsed;
+      renderQuickPreview(parsed);
       renderConfirm(parsed);
     };
 
@@ -2330,16 +3368,18 @@
       $("#quickText").value = "";
       $("#confirmArea").innerHTML = "";
       pendingParse = null;
+      clearQuickPreview();
     };
 
     $("#addItemBtn").onclick = () => openItemModal();
     $("#manualShoppingBtn").onclick = () => openManualShoppingModal();
     $("#undoBtn").onclick = undoLatest;
 
-    $("#categoryFilter").onchange = renderInventory;
-    $("#filterLow").onchange = renderInventory;
-    $("#filterExpiring").onchange = renderInventory;
-    $("#filterExpired").onchange = renderInventory;
+    $("#inventorySearch").oninput = () => { inventoryRenderLimit = 80; renderInventory(); };
+    $("#categoryFilter").onchange = () => { inventoryRenderLimit = 80; renderInventory(); };
+    $("#filterLow").onchange = () => { inventoryRenderLimit = 80; renderInventory(); };
+    $("#filterExpiring").onchange = () => { inventoryRenderLimit = 80; renderInventory(); };
+    $("#filterExpired").onchange = () => { inventoryRenderLimit = 80; renderInventory(); };
 
     $$(".nav-btn").forEach(btn => btn.onclick = () => navigate(btn.dataset.nav));
     $$("[data-nav]").forEach(btn => {
@@ -2347,23 +3387,51 @@
         btn.onclick = () => {
           const target = btn.dataset.nav;
           navigate(target);
-          if (btn.dataset.filter === "low") $("#filterLow").checked = true;
-          if (btn.dataset.filter === "expiring") $("#filterExpiring").checked = true;
-          if (btn.dataset.filter === "expired") $("#filterExpired").checked = true;
-          renderInventory();
+          if (btn.dataset.filter) {
+            resetInventoryFilters();
+            if (btn.dataset.filter === "low") $("#filterLow").checked = true;
+            if (btn.dataset.filter === "expiring") $("#filterExpiring").checked = true;
+            if (btn.dataset.filter === "expired") $("#filterExpired").checked = true;
+            renderInventory();
+          }
         };
       }
     });
 
     $("#modalBackdrop").addEventListener("click", event => {
-      if (event.target.id === "modalBackdrop") closeModal();
+      if (event.target.id === "modalBackdrop" && activeModalOptions.closeOnBackdrop) closeModal();
     });
 
-    $("#clearDataBtn").onclick = () => {
-      if (!confirm("确定清空所有本地数据吗？此操作不可撤销。")) return;
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && $("#modalBackdrop").classList.contains("show") && activeModalOptions.closeOnEscape) {
+        event.preventDefault();
+        closeModal();
+      }
+    });
+
+    $("#toast").onclick = () => {
+      $("#toast").classList.remove("show");
+      clearTimeout($("#toast")._timer);
+    };
+
+    $("#exportBackupBtn").onclick = exportBackup;
+    $("#importBackupBtn").onclick = () => $("#importBackupInput").click();
+    $("#importBackupInput").onchange = event => importBackupFile(event.target.files?.[0]);
+
+    $("#clearDataBtn").onclick = async () => {
+      const ok = await openConfirmModal({
+        title: "清空本地数据",
+        message: "确定清空所有本地数据吗？此操作不可撤销。",
+        detail: "建议先导出备份，避免误删后无法恢复。",
+        confirmText: "仍然清空",
+        danger: true
+      });
+      if (!ok) return;
+
       localStorage.removeItem(STORAGE_KEY);
       state = loadState();
       expandedItems = new Set();
+      resetInventoryFilters();
       render();
       toast("已清空");
     };
@@ -2398,7 +3466,7 @@
       const form = new FormData(event.currentTarget);
       const item = form.get("itemId") ? getItemById(form.get("itemId")) : null;
       const itemName = String(form.get("itemName") || "").trim();
-      if (!item && !itemName) return alert("请选择物品或填写物品名称");
+      if (!item && !itemName) return toast("请选择物品或填写物品名称");
       addToShoppingList({
         item,
         itemName,
@@ -2412,10 +3480,71 @@
     };
   }
 
+  // ===== dev/test: console-only parser checks, invisible to normal UI =====
+
+  function runParserTests() {
+    const year = new Date().getFullYear();
+    const cases = [
+      { input: "牛奶加 2 盒", expected: { action: "add", itemName: "牛奶", quantity: 2, unit: "盒" } },
+      { input: "鸡蛋吃了两个", expected: { action: "reduce", itemName: "鸡蛋", quantity: 2, unit: "个" } },
+      { input: "大米还剩 3 斤", expected: { action: "setRemaining", itemName: "大米", quantity: 3, unit: "斤" } },
+      { input: "牛奶 6 月 20 日过期", expected: { action: "setExpiry", itemName: "牛奶", expiryDate: `${year}-06-20` } },
+      { input: "洗衣液加入购物清单", expected: { action: "addToShopping", itemName: "洗衣液", quantity: 1 } },
+      { input: "纸巾用完了", expected: { action: "usedUp", itemName: "纸巾", quantity: 0 } },
+      { input: "两盒牛奶加", expected: { action: "add", itemName: "牛奶", quantity: 2, unit: "盒" } },
+      { input: "火锅底料买了 3 包", expected: { action: "add", itemName: "火锅底料", quantity: 3, unit: "包" } },
+      { input: "粉底液还剩半瓶", expected: { action: "setRemaining", itemName: "粉底液", quantity: 0.5, unit: "瓶", category: "化妆品/护肤" } },
+      { input: "口红用完了", expected: { action: "usedUp", itemName: "口红", quantity: 0, category: "化妆品/护肤" } },
+      { input: "婴儿奶粉买了 2 罐", expected: { action: "add", itemName: "婴儿奶粉", quantity: 2, unit: "罐", category: "母婴用品" } },
+      { input: "保鲜盒加 2 个", expected: { action: "add", itemName: "保鲜盒", quantity: 2, unit: "个", category: "厨房用品" } },
+      { input: "玻璃水加入购物清单", expected: { action: "addToShopping", itemName: "玻璃水", quantity: 1, category: "汽车用品" } }
+    ];
+
+    const results = cases.map(testCase => {
+      const parsed = parseQuickInput(testCase.input) || {};
+      const actual = {
+        action: parsed.action,
+        itemName: parsed.itemName,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        expiryDate: parsed.expiryDate,
+        category: parsed.category
+      };
+      const pass = Object.entries(testCase.expected).every(([key, value]) => actual[key] === value);
+      return {
+        input: testCase.input,
+        expected: testCase.expected,
+        actual,
+        pass
+      };
+    });
+
+    console.table(results.map(row => ({
+      input: row.input,
+      expected: JSON.stringify(row.expected),
+      actual: JSON.stringify(row.actual),
+      pass: row.pass
+    })));
+    return results;
+  }
+
+  window.HomeStockVoiceDev = {
+    ...(window.HomeStockVoiceDev || {}),
+    parseQuickInput,
+    runParserTests
+  };
+
+
   function bootstrap() {
     bindEvents();
     initSpeech();
+    const compacted = compactUndoSnapshots();
+    const autoChanged = ensureAutoShoppingList();
+    if (compacted && !autoChanged) saveState();
     render();
+    if (startupWarning) {
+      toast(startupWarning, { duration: 9000 });
+    }
   }
 
   bootstrap();
