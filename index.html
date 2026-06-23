@@ -483,6 +483,202 @@
       font-size: 12px;
     }
 
+
+    .quick-preview {
+      padding: 8px;
+      gap: 6px;
+    }
+
+    .quick-preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .action-item-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-item-row .pill { flex-shrink: 0; }
+
+    .action-item-row select,
+    .action-item-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-grid.compact {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .preview-grid.compact label {
+      font-size: 12px;
+      gap: 3px;
+    }
+
+    .preview-grid.compact input,
+    .preview-grid.compact select {
+      min-height: 34px;
+      padding: 6px 8px;
+      font-size: 13px;
+      border-radius: 10px;
+    }
+
+    .candidate-toggle-row { margin-top: 4px; }
+
+    .candidate-grid.compact {
+      display: flex;
+      overflow-x: auto;
+      gap: 6px;
+      padding-bottom: 2px;
+    }
+
+    .candidate-grid.compact .candidate-card {
+      min-width: 150px;
+      padding: 6px;
+      font-size: 12px;
+    }
+
+    .compact-item-card {
+      padding: 10px 12px;
+      margin: 8px 0;
+    }
+
+    .item-title.compact {
+      align-items: center;
+    }
+
+    .item-main-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .item-main-line h3 {
+      font-size: 16px;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .qty-display {
+      font-size: 20px;
+      font-weight: 900;
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .item-meta.compact {
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .item-meta.compact .pill {
+      font-size: 10px;
+      padding: 2px 6px;
+    }
+
+    .item-subline {
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+
+    .item-actions {
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .item-actions button.small {
+      min-height: 32px;
+      padding: 5px 8px;
+      font-size: 12px;
+      border-radius: 9px;
+    }
+
+    .compact-batch-row {
+      padding: 8px;
+    }
+
+    .compact-batch-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .compact-batch-actions {
+      gap: 4px;
+    }
+
+    .compact-batch-actions button.small {
+      min-height: 30px;
+      padding: 4px 7px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .compact-log-row {
+      padding: 8px 10px;
+      margin-top: 8px;
+    }
+
+    .log-main-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .log-input-line {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .asr-usage-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .asr-log-row {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .asr-log-row .log-input-line {
+      color: var(--muted);
+    }
+
+    @media (max-width: 520px) {
+      .preview-grid.compact { grid-template-columns: 1fr 1fr; }
+      .action-item-row { align-items: stretch; }
+      .qty-display { font-size: 18px; }
+      .item-actions button.small { flex: 1 1 auto; }
+    }
+
     @media (min-width: 760px) {
       .app-shell { padding-left: 22px; padding-right: 22px; }
       header { margin-left: -22px; margin-right: -22px; padding-left: 22px; padding-right: 22px; }
@@ -601,20 +797,82 @@
         <div id="shoppingList"></div>
       </section>
 
-      <section class="section" id="section-logs">
+      <section class="section" id="section-settings">
         <div class="row between wrap">
           <div>
-            <h2 style="margin:0;">操作日志</h2>
-            <div class="muted tiny">包含原始输入、解析结果、动作、数量变化和修改人字段</div>
-          </div>
-          <div class="row wrap">
-            <button class="small ghost" id="exportBackupBtn" type="button">导出备份</button>
-            <button class="small ghost" id="importBackupBtn" type="button">导入备份</button>
-            <button class="danger small" id="clearDataBtn" type="button">清空本地数据</button>
+            <h2 style="margin:0;">设置</h2>
+            <div class="muted tiny">语音识别、付费服务、日志和数据管理</div>
           </div>
         </div>
-        <input id="importBackupInput" type="file" accept="application/json,.json" hidden>
-        <div id="logsList"></div>
+
+        <div class="card">
+          <div class="row between wrap">
+            <div>
+              <b>语音识别服务</b>
+              <div class="tiny muted">可使用输入法语音、自定义 ASR，或内置付费服务</div>
+            </div>
+            <span class="pill primary" id="asrModePill"></span>
+          </div>
+
+          <div class="grid" style="margin-top:12px;">
+            <label class="checkbox-line">
+              <input type="radio" name="asrMode" value="keyboard">
+              使用输入法语音，不上传音频
+            </label>
+            <label class="checkbox-line">
+              <input type="radio" name="asrMode" value="self">
+              使用我自己的 ASR 服务
+            </label>
+            <label class="checkbox-line">
+              <input type="radio" name="asrMode" value="builtin">
+              使用内置付费服务
+            </label>
+          </div>
+
+          <div id="selfAsrSettings" class="grid" style="margin-top:12px;"></div>
+          <div id="builtinAsrSettings" class="grid" style="margin-top:12px;"></div>
+
+          <div class="row wrap" style="margin-top:12px;">
+            <button class="primary small" id="saveSettingsBtn" type="button">保存设置</button>
+            <button class="ghost small" id="testAsrBtn" type="button">测试连接</button>
+            <button class="ghost small" id="resetSettingsBtn" type="button">恢复默认</button>
+            <button class="danger small" id="clearVoiceSettingsBtn" type="button">清空语音配置</button>
+          </div>
+
+          <div id="asrUsageList" class="asr-usage-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="row between wrap">
+            <div>
+              <b>操作日志</b>
+              <div class="tiny muted">库存、购物清单、撤销等操作记录</div>
+            </div>
+          </div>
+          <div id="logsList"></div>
+        </div>
+
+        <div class="card">
+          <div class="row between wrap">
+            <div>
+              <b>数据管理</b>
+              <div class="tiny muted">备份、导入和清空本地数据</div>
+            </div>
+            <div class="row wrap">
+              <button class="small ghost" id="exportBackupBtn" type="button">导出备份</button>
+              <button class="small ghost" id="importBackupBtn" type="button">导入备份</button>
+              <button class="danger small" id="clearDataBtn" type="button">清空本地数据</button>
+            </div>
+          </div>
+          <input id="importBackupInput" type="file" accept="application/json,.json" hidden>
+        </div>
+
+        <div class="card">
+          <b>隐私说明</b>
+          <div class="tiny muted" style="margin-top:8px;">
+            使用输入法语音时，本应用不上传音频。使用自定义 ASR 时，音频会发送到你填写的端点。使用内置付费服务时，音频会发送到服务端代理用于识别，不在前端保存音频。
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -624,7 +882,7 @@
       <button class="nav-btn active" data-nav="home"><span class="nav-icon">🎙️</span>首页</button>
       <button class="nav-btn" data-nav="inventory"><span class="nav-icon">📦</span>库存</button>
       <button class="nav-btn" data-nav="shopping"><span class="nav-icon">🛒</span>清单</button>
-      <button class="nav-btn" data-nav="logs"><span class="nav-icon">🧾</span>日志</button>
+      <button class="nav-btn" data-nav="settings"><span class="nav-icon">⚙️</span>设置</button>
     </div>
   </nav>
 
@@ -661,8 +919,27 @@
     undo: "撤销"
   };
 
+  const SETTINGS_STORAGE_KEY = "homeStockVoice.settings.v1";
+
+  const DEFAULT_SETTINGS = {
+    schemaVersion: 1,
+    asrMode: "keyboard",
+    selfAsrEndpoint: "",
+    selfAsrApiKey: "",
+    selfAsrRequestFormat: "formData",
+    selfAsrAudioField: "audio",
+    selfAsrTextPath: "",
+    builtinAsrEndpoint: "/api/asr/builtin",
+    builtinRechargeUrl: "",
+    builtinBalanceText: "未连接",
+    builtinUsageText: "暂无用量数据",
+    maxDurationMs: 15000,
+    deviceId: "",
+    asrUsageLogs: []
+  };
+
   const VOICE_CONFIG = {
-    asrEndpoint: "",
+    // 兼容旧代码入口；实际识别端点运行时从 settings 读取。
     maxDurationMs: 15000
   };
 
@@ -771,6 +1048,7 @@
 
   let startupWarning = null;
   let state = loadState();
+  let settings = loadSettings();
   let pendingParse = null;
   let quickPreviewTimer = null;
   let mediaRecorder = null;
@@ -1045,6 +1323,301 @@
       return false;
     }
   }
+
+
+  // ===== settings: ASR mode, custom endpoint, builtin service display cache =====
+
+  function createDefaultSettings() {
+    const defaults = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    defaults.deviceId = `device_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return defaults;
+  }
+
+  function migrateSettings(raw) {
+    const defaults = createDefaultSettings();
+    const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    const merged = { ...defaults, ...source };
+
+    if (!["keyboard", "self", "builtin"].includes(merged.asrMode)) merged.asrMode = "keyboard";
+    if (!["formData", "json"].includes(merged.selfAsrRequestFormat)) merged.selfAsrRequestFormat = "formData";
+
+    merged.schemaVersion = 1;
+    merged.selfAsrEndpoint = String(merged.selfAsrEndpoint || "");
+    merged.selfAsrApiKey = String(merged.selfAsrApiKey || "");
+    merged.selfAsrAudioField = String(merged.selfAsrAudioField || "audio").trim() || "audio";
+    merged.selfAsrTextPath = String(merged.selfAsrTextPath || "").trim();
+    merged.builtinAsrEndpoint = String(merged.builtinAsrEndpoint || DEFAULT_SETTINGS.builtinAsrEndpoint);
+    merged.builtinRechargeUrl = String(merged.builtinRechargeUrl || "");
+    merged.builtinBalanceText = String(merged.builtinBalanceText || DEFAULT_SETTINGS.builtinBalanceText);
+    merged.builtinUsageText = String(merged.builtinUsageText || DEFAULT_SETTINGS.builtinUsageText);
+    merged.maxDurationMs = Math.max(1000, Math.min(120000, asNumber(merged.maxDurationMs, DEFAULT_SETTINGS.maxDurationMs)));
+    merged.deviceId = String(merged.deviceId || defaults.deviceId);
+    merged.asrUsageLogs = Array.isArray(merged.asrUsageLogs) ? merged.asrUsageLogs.slice(0, 50) : [];
+    return merged;
+  }
+
+  function loadSettings() {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return createDefaultSettings();
+    try {
+      return migrateSettings(JSON.parse(raw));
+    } catch (err) {
+      console.warn("Failed to load settings; using defaults", err);
+      return createDefaultSettings();
+    }
+  }
+
+  function saveSettings() {
+    settings = migrateSettings(settings);
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      return true;
+    } catch (err) {
+      console.warn("Failed to save settings", err);
+      toast("设置保存失败，请检查浏览器存储空间");
+      return false;
+    }
+  }
+
+  function getActiveAsrModeLabel() {
+    if (settings.asrMode === "self") return "自定义 ASR";
+    if (settings.asrMode === "builtin") return "内置付费服务";
+    return "输入法语音";
+  }
+
+  function updateSpeechStatusLabel() {
+    const status = $("#speechStatus");
+    const voiceBtn = $("#voiceBtn");
+    if (!status) return;
+
+    if (settings.asrMode === "self") {
+      status.textContent = settings.selfAsrEndpoint ? "自定义 ASR" : "ASR 未配置";
+      if (voiceBtn) voiceBtn.textContent = "按住说话";
+    } else if (settings.asrMode === "builtin") {
+      status.textContent = settings.builtinAsrEndpoint ? "内置语音" : "内置未配置";
+      if (voiceBtn) voiceBtn.textContent = "按住说话";
+    } else {
+      status.textContent = "输入法语音";
+      if (voiceBtn) voiceBtn.textContent = "语音输入";
+    }
+  }
+
+  function renderAsrUsageLogsHtml() {
+    const logs = Array.isArray(settings.asrUsageLogs) ? settings.asrUsageLogs.slice(0, 8) : [];
+    if (!logs.length) {
+      return `<div class="tiny muted" style="margin-top:10px;">暂无语音识别使用记录。</div>`;
+    }
+
+    return `
+      <div class="tiny muted" style="margin-top:10px;">最近 ASR 使用日志（不保存音频）：</div>
+      ${logs.map(log => `
+        <div class="asr-log-row">
+          <div class="log-main-line">
+            <b class="${log.success ? "ok-text" : "warn-text"}">${log.success ? "识别成功" : "识别失败"}</b>
+            <span class="pill">${escapeHtml(new Date(log.timestamp).toLocaleString())}</span>
+          </div>
+          <div class="tiny muted log-input-line">模式：${escapeHtml(log.mode || "-")} · 状态：${escapeHtml(log.status || "-")} · ${escapeHtml(log.message || "")}</div>
+        </div>
+      `).join("")}
+    `;
+  }
+
+  function renderSettings() {
+    const section = $("#section-settings");
+    if (!section) return;
+
+    $$(`input[name="asrMode"]`).forEach(input => {
+      input.checked = input.value === settings.asrMode;
+    });
+
+    const pill = $("#asrModePill");
+    if (pill) pill.textContent = getActiveAsrModeLabel();
+
+    const selfBox = $("#selfAsrSettings");
+    if (selfBox) {
+      selfBox.hidden = settings.asrMode !== "self";
+      selfBox.innerHTML = settings.asrMode === "self" ? `
+        <div class="grid desktop-two">
+          <label>ASR 端点 URL
+            <input id="selfAsrEndpoint" value="${escapeHtml(settings.selfAsrEndpoint)}" placeholder="https://example.com/asr">
+          </label>
+          <label>API Key
+            <input id="selfAsrApiKey" type="password" autocomplete="off" value="${escapeHtml(settings.selfAsrApiKey)}" placeholder="仅发往你自己的端点">
+          </label>
+          <label>请求格式
+            <select id="selfAsrRequestFormat">
+              <option value="formData" ${settings.selfAsrRequestFormat === "formData" ? "selected" : ""}>FormData</option>
+              <option value="json" ${settings.selfAsrRequestFormat === "json" ? "selected" : ""}>JSON Base64</option>
+            </select>
+          </label>
+          <label>音频字段名
+            <input id="selfAsrAudioField" value="${escapeHtml(settings.selfAsrAudioField || "audio")}" placeholder="audio">
+          </label>
+          <label>返回文本路径
+            <input id="selfAsrTextPath" value="${escapeHtml(settings.selfAsrTextPath)}" placeholder="可选，如 text 或 data.text">
+          </label>
+          <label>最大录音时长（秒）
+            <input id="maxDurationSec" type="number" min="1" max="120" step="1" value="${escapeHtml(Math.round(asNumber(settings.maxDurationMs, 15000) / 1000))}">
+          </label>
+        </div>
+        <div class="tiny muted">API Key 仅用于发送到你自己的 ASR 端点，不会发送到本应用服务器，也不会写入库存备份 JSON。</div>
+      ` : "";
+    }
+
+    const builtinBox = $("#builtinAsrSettings");
+    if (builtinBox) {
+      builtinBox.hidden = settings.asrMode !== "builtin";
+      builtinBox.innerHTML = settings.asrMode === "builtin" ? `
+        <div class="tiny muted">内置服务需要后端代理支持，前端不会保存音频，也不会在本地模拟扣费。</div>
+        <div class="grid desktop-two">
+          <label>内置服务端点
+            <input id="builtinAsrEndpoint" value="${escapeHtml(settings.builtinAsrEndpoint)}" placeholder="/api/asr/builtin">
+          </label>
+          <label>充值入口 URL
+            <input id="builtinRechargeUrl" value="${escapeHtml(settings.builtinRechargeUrl)}" placeholder="由后端或管理员提供">
+          </label>
+        </div>
+        <div class="settings-inline">
+          <span class="tiny muted">设备 ID：</span>
+          <span class="kbd" id="deviceIdText">${escapeHtml(settings.deviceId)}</span>
+          <button class="small ghost" id="copyDeviceIdBtn" type="button">复制</button>
+        </div>
+        <div class="settings-inline">
+          <span class="pill primary">余额/次数：${escapeHtml(settings.builtinBalanceText)}</span>
+          <span class="pill">用量：${escapeHtml(settings.builtinUsageText)}</span>
+          <button class="small primary" id="rechargeBuiltinBtn" type="button">充值</button>
+        </div>
+      ` : "";
+    }
+
+    const usageBox = $("#asrUsageList");
+    if (usageBox) usageBox.innerHTML = renderAsrUsageLogsHtml();
+
+    updateSpeechStatusLabel();
+    bindSettingsEvents();
+  }
+
+  function collectSettingsFromForm() {
+    const selectedMode = $(`input[name="asrMode"]:checked`)?.value || settings.asrMode || "keyboard";
+    const next = { ...settings, asrMode: selectedMode };
+
+    if ($("#selfAsrEndpoint")) next.selfAsrEndpoint = $("#selfAsrEndpoint").value.trim();
+    if ($("#selfAsrApiKey")) next.selfAsrApiKey = $("#selfAsrApiKey").value.trim();
+    if ($("#selfAsrRequestFormat")) next.selfAsrRequestFormat = $("#selfAsrRequestFormat").value;
+    if ($("#selfAsrAudioField")) next.selfAsrAudioField = $("#selfAsrAudioField").value.trim() || "audio";
+    if ($("#selfAsrTextPath")) next.selfAsrTextPath = $("#selfAsrTextPath").value.trim();
+    if ($("#maxDurationSec")) next.maxDurationMs = Math.round(asNumber($("#maxDurationSec").value, 15) * 1000);
+
+    if ($("#builtinAsrEndpoint")) next.builtinAsrEndpoint = $("#builtinAsrEndpoint").value.trim();
+    if ($("#builtinRechargeUrl")) next.builtinRechargeUrl = $("#builtinRechargeUrl").value.trim();
+
+    settings = migrateSettings(next);
+    return settings;
+  }
+
+  function bindSettingsEvents() {
+    $$(`input[name="asrMode"]`).forEach(input => {
+      input.onchange = () => {
+        collectSettingsFromForm();
+        settings.asrMode = input.value;
+        renderSettings();
+      };
+    });
+
+    $("#saveSettingsBtn") && ($("#saveSettingsBtn").onclick = () => {
+      collectSettingsFromForm();
+      if (saveSettings()) {
+        renderSettings();
+        updateSpeechStatusLabel();
+        toast("设置已保存");
+      }
+    });
+
+    $("#testAsrBtn") && ($("#testAsrBtn").onclick = async () => {
+      collectSettingsFromForm();
+      await testAsrConnection();
+    });
+
+    $("#resetSettingsBtn") && ($("#resetSettingsBtn").onclick = () => {
+      const keepDeviceId = settings.deviceId || "";
+      settings = createDefaultSettings();
+      if (keepDeviceId) settings.deviceId = keepDeviceId;
+      saveSettings();
+      renderSettings();
+      toast("已恢复默认设置");
+    });
+
+    $("#clearVoiceSettingsBtn") && ($("#clearVoiceSettingsBtn").onclick = async () => {
+      const ok = await openConfirmModal({
+        title: "清空语音配置",
+        message: "确定清空语音识别配置吗？库存和购物清单不会受影响。",
+        detail: "自定义 ASR 端点和本地保存的 API Key 会被清除。",
+        confirmText: "清空语音配置",
+        danger: true
+      });
+      if (!ok) return;
+      localStorage.removeItem(SETTINGS_STORAGE_KEY);
+      settings = loadSettings();
+      renderSettings();
+      toast("已清空语音配置");
+    });
+
+    $("#copyDeviceIdBtn") && ($("#copyDeviceIdBtn").onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(settings.deviceId);
+        toast("设备 ID 已复制");
+      } catch (err) {
+        toast("复制失败，可手动选中设备 ID");
+      }
+    });
+
+    $("#rechargeBuiltinBtn") && ($("#rechargeBuiltinBtn").onclick = () => {
+      collectSettingsFromForm();
+      if (settings.builtinRechargeUrl) {
+        window.open(settings.builtinRechargeUrl, "_blank", "noopener,noreferrer");
+      } else {
+        toast("暂未配置充值入口，请联系管理员。");
+      }
+    });
+  }
+
+  async function testAsrConnection() {
+    if (settings.asrMode === "keyboard") {
+      toast("当前为输入法语音模式，不需要测试连接");
+      return;
+    }
+
+    const endpoint = settings.asrMode === "self" ? settings.selfAsrEndpoint : settings.builtinAsrEndpoint;
+    if (!endpoint) {
+      toast(settings.asrMode === "self" ? "请先填写 ASR 端点" : "内置语音服务尚未配置");
+      return;
+    }
+
+    const headers = {};
+    if (settings.asrMode === "self" && settings.selfAsrApiKey) {
+      headers.Authorization = `Bearer ${settings.selfAsrApiKey}`;
+    }
+
+    try {
+      const response = await fetch(endpoint, { method: "HEAD", headers });
+      addAsrUsageLog({
+        mode: settings.asrMode,
+        success: response.ok || response.status === 405,
+        status: response.status || "HEAD",
+        message: response.ok ? "连接测试成功" : `连接测试返回 ${response.status}`
+      });
+      toast(response.ok || response.status === 405 ? "连接测试完成" : `连接测试返回 ${response.status}`);
+    } catch (err) {
+      addAsrUsageLog({
+        mode: settings.asrMode,
+        success: false,
+        status: "NETWORK",
+        message: err.message || "连接测试失败"
+      });
+      toast("连接测试失败，请检查端点或跨域设置");
+    }
+  }
+
 
   function snapshotForUndo() {
     return {
@@ -2119,12 +2692,12 @@
     return Array.from(map.values());
   }
 
-  function renderCandidateItemsHtml(items, { title = "候选物品" } = {}) {
+  function renderCandidateItemsHtml(items, { title = "候选物品", compact = false } = {}) {
     if (!items.length) return "";
     return `
-      <div class="stack" style="margin-top:10px;">
+      <div class="stack" style="margin-top:${compact ? "4" : "10"}px;">
         <div class="tiny muted">${escapeHtml(title)}</div>
-        <div class="candidate-grid">
+        <div class="candidate-grid${compact ? " compact" : ""}">
           ${items.map(item => `
             <div class="candidate-card">
               <b>${escapeHtml(item.name)}</b>
@@ -2174,45 +2747,50 @@
       `<option value="">创建新物品</option>`
     ].join("");
 
+    const categoryField = `<label>分类
+      <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
+    </label>`;
+
     preview.innerHTML = `
-      <div class="row between wrap">
+      <div class="quick-preview-header">
         <b>解析预览</b>
         <span class="pill ${parsed.confidence === "exact" ? "ok" : parsed.confidence === "similar" ? "warn" : ""}">${escapeHtml(parseConfidenceLabel(parsed))}</span>
       </div>
-      <div class="grid desktop-two">
-        <label>动作
-          <input value="${escapeHtml(parsed.actionLabel || parsed.action)}" disabled>
-        </label>
-        <label>物品
-          ${hasCandidateSelect
-            ? `<select id="confirmItemSelect">${existingOptions}</select>`
-            : `<input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">`
-          }
-        </label>
 
-        ${hasCandidateSelect ? `
-        <div id="confirmCreateFields" class="grid two" style="display:none;">
+      <div class="action-item-row">
+        <span class="pill primary">${escapeHtml(parsed.actionLabel || parsed.action)}</span>
+        ${hasCandidateSelect
+          ? `<select id="confirmItemSelect">${existingOptions}</select>`
+          : `<input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">`
+        }
+      </div>
+
+      ${hasCandidateSelect ? `
+        <div id="confirmCreateFields" class="preview-grid compact" style="display:none;">
           <label>新物品名称
             <input id="confirmNewName" value="${escapeHtml(parsed.itemName)}" placeholder="物品名称">
           </label>
-          <label>新物品分类
-            <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
-          </label>
-        </div>` : `
-        <label>分类
-          <select id="confirmNewCategory">${CATEGORIES.map(c => `<option value="${c}" ${c === (parsed.category || "其他") ? "selected" : ""}>${c}</option>`).join("")}</select>
-        </label>`}
+          ${categoryField}
+        </div>` : ""}
 
+      <div class="preview-grid compact">
+        ${!hasCandidateSelect ? categoryField : ""}
         ${needsQuantity ? `<label>数量<input id="confirmQty" type="number" step="0.01" min="0" value="${escapeHtml(parsed.quantity ?? 1)}"></label>` : ""}
         <label>单位<input id="confirmUnit" value="${escapeHtml(parsed.unit || exactItem?.unit || "")}" placeholder="盒 / 包 / 个 / 斤"></label>
-        ${needsExpiry ? `<label>过期日<input id="confirmExpiry" type="date" value="${escapeHtml(parsed.expiryDate || "")}"></label>` : ""}
+        ${needsExpiry ? `<label class="expiry-field">过期日<input id="confirmExpiry" type="date" value="${escapeHtml(parsed.expiryDate || "")}"></label>` : ""}
       </div>
 
       ${needsExpiry ? pastDateWarningHtml(parsed.expiryDate) : ""}
-      ${candidates.length ? renderCandidateItemsHtml(candidates, { title: "候选物品，可在上方选择已有物品或创建新物品" }) : ""}
-      ${similar.length && !exactItem ? `<div class="tiny warn-text" style="margin-top:10px;">找到相似物品。请选择已有物品，或选择“创建新物品”。</div>` : ""}
-      ${!exactItem && !similar.length ? `<div class="tiny warn-text" style="margin-top:10px;">没有找到物品。确认更新后会新增物品，并使用你选择的分类。</div>` : ""}
-      <div class="tiny muted">预览不会自动写入库存；可先编辑上方字段，再点击“确认更新”。</div>
+      ${candidates.length ? `
+        <div class="candidate-toggle-row">
+          <button class="small ghost" type="button" id="toggleCandidatesBtn">展开候选物品（${candidates.length}）</button>
+          <div id="candidatePanel" hidden>
+            ${renderCandidateItemsHtml(candidates, { title: "候选物品，可在上方选择已有物品或创建新物品", compact: true })}
+          </div>
+        </div>` : ""}
+      ${similar.length && !exactItem ? `<div class="tiny warn-text" style="margin-top:4px;">找到相似物品。请选择已有物品，或选择“创建新物品”。</div>` : ""}
+      ${!exactItem && !similar.length ? `<div class="tiny warn-text" style="margin-top:4px;">没有找到物品。确认更新后会新增物品，并使用你选择的分类。</div>` : ""}
+      <div class="tiny muted">预览不会自动写入库存；可先编辑字段，再点击“确认更新”。</div>
     `;
 
     const updateCandidateSelection = () => {
@@ -2226,6 +2804,13 @@
     };
 
     $("#confirmItemSelect")?.addEventListener("change", updateCandidateSelection);
+    $("#toggleCandidatesBtn")?.addEventListener("click", () => {
+      const panel = $("#candidatePanel");
+      const btn = $("#toggleCandidatesBtn");
+      if (!panel || !btn) return;
+      panel.hidden = !panel.hidden;
+      btn.textContent = panel.hidden ? `展开候选物品（${candidates.length}）` : `收起候选物品（${candidates.length}）`;
+    });
     updateCandidateSelection();
     bindExpiryWarning("#confirmExpiry");
 
@@ -2345,6 +2930,7 @@
     renderHome();
     renderInventory();
     renderShopping();
+    renderSettings();
     renderLogs();
     bindExampleShortcuts();
     updateUndoState();
@@ -2510,38 +3096,40 @@
     const expiring = isExpiringItem(item);
     const expired = isExpiredItem(item);
     const expanded = expandedItems.has(item.id);
+    const aliasText = item.aliases?.length ? `别名 ${item.aliases.length} 个` : "";
+    const subParts = [
+      `最低 ${formatQty(item.minStock)}${item.unit || ""}`,
+      item.location ? `位置：${item.location}` : "位置：未设置",
+      item.expiryReminderEnabled === false ? "不提醒临期" : `临期提醒：${formatQty(item.expiryReminderDays)} 天`,
+      aliasText
+    ].filter(Boolean);
 
     return `
-      <article class="card">
-        <div class="item-title">
-          <div>
-            <h3>${escapeHtml(item.name)}</h3>
-            <div class="item-meta">
+      <article class="card compact-item-card">
+        <div class="item-title compact">
+          <div style="min-width:0;">
+            <div class="item-main-line">
+              <h3>${escapeHtml(item.name)}</h3>
               <span class="pill">${escapeHtml(item.category || "其他")}</span>
-              ${item.brand ? `<span class="pill">${escapeHtml(item.brand)}</span>` : ""}
-              ${item.spec ? `<span class="pill">${escapeHtml(item.spec)}</span>` : ""}
               ${low ? `<span class="pill warn">低库存</span>` : ""}
               ${expiring ? `<span class="pill warn">临期</span>` : ""}
               ${expired ? `<span class="pill danger">已过期</span>` : ""}
             </div>
+            <div class="item-meta compact">
+              ${item.brand ? `<span class="pill">${escapeHtml(item.brand)}</span>` : ""}
+              ${item.spec ? `<span class="pill">${escapeHtml(item.spec)}</span>` : ""}
+            </div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:26px;font-weight:900;">${formatQty(qty)}<span class="small-text">${escapeHtml(item.unit || "")}</span></div>
-            <div class="tiny muted">最低 ${formatQty(item.minStock)}${escapeHtml(item.unit || "")}</div>
-          </div>
+          <div class="qty-display">${formatQty(qty)}<span class="small-text">${escapeHtml(item.unit || "")}</span></div>
         </div>
 
-        <div class="tiny muted" style="margin-top:8px;">
-          ${item.location ? `位置：${escapeHtml(item.location)} · ` : ""}
-          ${item.aliases?.length ? `别名：${escapeHtml(item.aliases.join("、"))} · ` : ""}
-          ${item.expiryReminderEnabled === false ? "不提醒临期" : `临期提醒：${formatQty(item.expiryReminderDays)} 天`}
-        </div>
+        <div class="tiny muted item-subline">${escapeHtml(subParts.join(" · "))}</div>
 
-        <div class="row wrap" style="margin-top:12px;">
-          <button class="small" data-expand="${item.id}">${expanded ? "收起批次" : "展开批次"}</button>
-          <button class="small primary" data-quick-add="${item.id}">增加</button>
-          <button class="small" data-quick-reduce="${item.id}">减少</button>
-          <button class="small" data-shop-item="${item.id}">加清单</button>
+        <div class="row wrap item-actions">
+          <button class="small" data-expand="${item.id}">${expanded ? "收起" : "批次"}</button>
+          <button class="small primary" data-quick-add="${item.id}">+</button>
+          <button class="small" data-quick-reduce="${item.id}">-</button>
+          <button class="small" data-shop-item="${item.id}">清单</button>
           <button class="small ghost" data-edit-item="${item.id}">编辑</button>
           <button class="small danger" data-delete-item="${item.id}">删除</button>
         </div>
@@ -2571,19 +3159,21 @@
           else if (days !== null && item.expiryReminderEnabled !== false && days <= asNumber(item.expiryReminderDays, 0)) tag = `<span class="pill warn">${days} 天后过期</span>`;
           else if (batch.expiryDate) tag = `<span class="pill ok">${days} 天后过期</span>`;
           return `
-            <div class="batch-row">
-              <div class="row between wrap">
-                <b>${formatQty(batch.quantity)}${escapeHtml(item.unit || "")}</b>
-                ${tag || `<span class="pill">无过期日</span>`}
+            <div class="batch-row compact-batch-row">
+              <div class="compact-batch-main">
+                <div class="settings-inline">
+                  <b>${formatQty(batch.quantity)}${escapeHtml(item.unit || "")}</b>
+                  ${tag || `<span class="pill">无过期日</span>`}
+                </div>
+                <div class="row wrap compact-batch-actions">
+                  <button class="small ghost" data-item-id="${item.id}" data-edit-batch="${batch.id}">编辑</button>
+                  <button class="small danger" data-item-id="${item.id}" data-delete-batch="${batch.id}">删除</button>
+                </div>
               </div>
-              <div class="tiny muted">
+              <div class="tiny muted log-input-line">
                 购买：${escapeHtml(batch.purchaseDate || "未填")} · 过期：${escapeHtml(batch.expiryDate || "未填")} · 位置：${escapeHtml(batch.location || item.location || "未填")}
               </div>
-              ${batch.notes ? `<div class="tiny muted">备注：${escapeHtml(batch.notes)}</div>` : ""}
-              <div class="row wrap" style="margin-top:8px;">
-                <button class="small ghost" data-item-id="${item.id}" data-edit-batch="${batch.id}">编辑批次</button>
-                <button class="small danger" data-item-id="${item.id}" data-delete-batch="${batch.id}">删除批次</button>
-              </div>
+              ${batch.notes ? `<div class="tiny muted log-input-line">备注：${escapeHtml(batch.notes)}</div>` : ""}
             </div>
           `;
         }).join("") : `<div class="empty">暂无批次。建议按不同过期日期新增批次。</div>`}
@@ -2633,8 +3223,11 @@
   }
 
   function renderLogs() {
+    const logsList = $("#logsList");
+    if (!logsList) return;
+
     if (!state.logs.length) {
-      $("#logsList").innerHTML = `<div class="empty">暂无操作日志</div>`;
+      logsList.innerHTML = `<div class="empty">暂无操作日志</div>`;
       return;
     }
 
@@ -2643,14 +3236,14 @@
       ? `<div class="empty"><div>仅展示前 ${visibleLogs.length} 条，共 ${state.logs.length} 条。</div><button class="small ghost" type="button" id="loadMoreLogsBtn" style="margin-top:10px;">继续加载更多</button></div>`
       : "";
 
-    $("#logsList").innerHTML = visibleLogs.map(log => `
-      <div class="log-row" style="margin-top:10px;">
-        <div class="row between wrap">
+    logsList.innerHTML = visibleLogs.map(log => `
+      <div class="log-row compact-log-row">
+        <div class="log-main-line">
           <b>${escapeHtml(log.actionLabel || log.action)}</b>
           <span class="pill">${escapeHtml(new Date(log.timestamp).toLocaleString())}</span>
         </div>
         <div class="tiny muted">物品：${escapeHtml(log.itemName || "-")} · 数量变化：${formatQty(log.quantityChange)}${escapeHtml(log.unit || "")} · 修改人：${escapeHtml(log.modifiedBy || log.actorId || "-")}</div>
-        <div class="tiny muted">原始输入：${escapeHtml(log.rawInput || "-")}</div>
+        <div class="tiny muted log-input-line">原始输入：${escapeHtml(log.rawInput || "-")}</div>
         ${log.undone ? `<div class="tiny warn-text">这条操作已撤销</div>` : ""}
       </div>
     `).join("") + moreHtml;
@@ -2660,6 +3253,7 @@
       renderLogs();
     });
   }
+
 
 
   function updateUndoState() {
@@ -3204,30 +3798,185 @@
   }
 
   function navigate(section) {
+    const target = $(`#section-${section}`);
+    if (!target) section = "home";
     $$(".section").forEach(el => el.classList.remove("active"));
-    $(`#section-${section}`).classList.add("active");
+    $(`#section-${section}`)?.classList.add("active");
     $$(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === section));
+    if (section === "settings") {
+      renderSettings();
+      renderLogs();
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ===== speech: optional ASR endpoint with input-method fallback =====
 
+  function getNestedValue(obj, path) {
+    if (!obj || !path) return undefined;
+    return String(path).split(".").filter(Boolean).reduce((current, key) => {
+      if (current === undefined || current === null) return undefined;
+      return current[key];
+    }, obj);
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const value = String(reader.result || "");
+        resolve(value.includes(",") ? value.split(",").pop() : value);
+      };
+      reader.onerror = () => reject(reader.error || new Error("音频转换失败"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function buildAsrRequest(blob, currentSettings = settings) {
+    if (currentSettings.asrMode === "builtin") {
+      const formData = new FormData();
+      formData.append("audio", blob, `voice-${Date.now()}.webm`);
+      formData.append("lang", "zh-CN");
+      formData.append("deviceId", currentSettings.deviceId);
+      return {
+        endpoint: currentSettings.builtinAsrEndpoint,
+        request: { method: "POST", body: formData }
+      };
+    }
+
+    if (currentSettings.selfAsrRequestFormat === "json") {
+      const audioBase64 = await blobToBase64(blob);
+      const headers = { "Content-Type": "application/json" };
+      if (currentSettings.selfAsrApiKey) headers.Authorization = `Bearer ${currentSettings.selfAsrApiKey}`;
+      return {
+        endpoint: currentSettings.selfAsrEndpoint,
+        request: {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            audioBase64,
+            mimeType: blob.type || "audio/webm",
+            lang: "zh-CN",
+            deviceId: currentSettings.deviceId
+          })
+        }
+      };
+    }
+
+    const formData = new FormData();
+    formData.append(currentSettings.selfAsrAudioField || "audio", blob, `voice-${Date.now()}.webm`);
+    formData.append("lang", "zh-CN");
+    formData.append("deviceId", currentSettings.deviceId);
+    const headers = {};
+    if (currentSettings.selfAsrApiKey) headers.Authorization = `Bearer ${currentSettings.selfAsrApiKey}`;
+    return {
+      endpoint: currentSettings.selfAsrEndpoint,
+      request: { method: "POST", headers, body: formData }
+    };
+  }
+
+  function extractAsrText(payload, currentSettings = settings) {
+    if (typeof payload === "string") return payload;
+    if (!payload || typeof payload !== "object") return "";
+    if (currentSettings.asrMode === "self" && currentSettings.selfAsrTextPath) {
+      const byPath = getNestedValue(payload, currentSettings.selfAsrTextPath);
+      if (byPath !== undefined && byPath !== null) return String(byPath);
+    }
+    return payload.text || payload.transcript || payload.result || payload.data?.text || "";
+  }
+
+  function addAsrUsageLog(entry) {
+    settings.asrUsageLogs = [
+      {
+        id: uid("asrlog"),
+        timestamp: nowISO(),
+        mode: entry.mode || settings.asrMode,
+        success: Boolean(entry.success),
+        status: String(entry.status || ""),
+        message: String(entry.message || "")
+      },
+      ...(Array.isArray(settings.asrUsageLogs) ? settings.asrUsageLogs : [])
+    ].slice(0, 50);
+    saveSettings();
+    renderSettings();
+  }
+
+  function handleAsrInsufficientBalance() {
+    toast("内置语音识别次数不足，请到设置充值");
+    navigate("settings");
+  }
+
+  async function recognizeBlob(blob, currentSettings = settings) {
+    if (!blob || blob.size <= 0) throw new Error("录音内容为空");
+
+    const mode = currentSettings.asrMode;
+    const endpoint = mode === "builtin" ? currentSettings.builtinAsrEndpoint : currentSettings.selfAsrEndpoint;
+    if (!endpoint) {
+      throw new Error(mode === "builtin" ? "内置语音服务尚未配置" : "请先到设置填写 ASR 端点");
+    }
+
+    const { request } = await buildAsrRequest(blob, currentSettings);
+    const response = await fetch(endpoint, request);
+    const contentType = response.headers.get("content-type") || "";
+    let payload = null;
+
+    try {
+      payload = contentType.includes("application/json") ? await response.json() : await response.text();
+    } catch (err) {
+      payload = "";
+    }
+
+    const code = payload && typeof payload === "object" ? payload.code : "";
+    if (response.status === 402 || code === "BALANCE_INSUFFICIENT") {
+      addAsrUsageLog({ mode, success: false, status: response.status || code, message: "余额或次数不足" });
+      handleAsrInsufficientBalance();
+      const err = new Error("BALANCE_INSUFFICIENT");
+      err.code = "BALANCE_INSUFFICIENT";
+      throw err;
+    }
+
+    if (!response.ok) {
+      const message = payload && typeof payload === "object" ? (payload.message || payload.error || "") : String(payload || "");
+      addAsrUsageLog({ mode, success: false, status: response.status, message: message || "语音识别失败" });
+      throw new Error(`语音识别失败：${response.status}`);
+    }
+
+    const text = extractAsrText(payload, currentSettings).trim();
+    if (!text) {
+      addAsrUsageLog({ mode, success: false, status: response.status || "EMPTY", message: "返回结果中没有文本" });
+      throw new Error("语音识别没有返回文本");
+    }
+
+    addAsrUsageLog({ mode, success: true, status: response.status || "OK", message: "识别完成" });
+    return text;
+  }
+
+  // ===== speech: dynamic ASR settings with input-method fallback =====
+
   function initSpeech() {
     const voiceBtn = $("#voiceBtn");
+    if (!voiceBtn) return;
     let lastFallbackAt = 0;
+
+    const stopTracks = () => {
+      if (voiceStream) {
+        voiceStream.getTracks().forEach(track => track.stop());
+        voiceStream = null;
+      }
+    };
 
     const fallbackToKeyboardVoice = message => {
       const input = $("#quickText");
-      input.focus();
+      input?.focus();
       try {
         const len = input.value.length;
         input.setSelectionRange(len, len);
       } catch (err) {}
       voiceBtn.classList.remove("pressing");
-      $("#speechStatus").textContent = "输入法语音";
+      updateSpeechStatusLabel();
       const now = Date.now();
       if (now - lastFallbackAt > 800) {
-        toast(message || "未配置语音识别服务，可暂用输入法麦克风输入");
+        toast(message || "可使用输入法麦克风输入；也可到设置配置 ASR 服务。");
         lastFallbackAt = now;
       }
     };
@@ -3245,59 +3994,6 @@
       }
     };
 
-    if (!VOICE_CONFIG.asrEndpoint) {
-      $("#speechStatus").textContent = "需配置 ASR";
-      voiceBtn.textContent = "按住说话";
-      const fallback = event => {
-        event?.preventDefault();
-        fallbackToKeyboardVoice("未配置语音识别服务，可暂用输入法麦克风输入");
-      };
-      voiceBtn.addEventListener("click", fallback);
-      voiceBtn.addEventListener("touchstart", fallback, { passive: false });
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      $("#speechStatus").textContent = "输入法语音";
-      voiceBtn.textContent = "语音输入";
-      const fallback = event => {
-        event?.preventDefault();
-        fallbackToKeyboardVoice("当前浏览器不支持录音，可使用输入法麦克风输入");
-      };
-      voiceBtn.addEventListener("click", fallback);
-      voiceBtn.addEventListener("touchstart", fallback, { passive: false });
-      return;
-    }
-
-    $("#speechStatus").textContent = "按住说话";
-    voiceBtn.textContent = "按住说话";
-
-    const stopTracks = () => {
-      if (voiceStream) {
-        voiceStream.getTracks().forEach(track => track.stop());
-        voiceStream = null;
-      }
-    };
-
-    const uploadRecording = async blob => {
-      if (!blob || blob.size <= 0) return;
-      const formData = new FormData();
-      formData.append("audio", blob, `voice-${Date.now()}.webm`);
-      formData.append("lang", "zh-CN");
-
-      $("#speechStatus").textContent = "识别中";
-      const response = await fetch(VOICE_CONFIG.asrEndpoint, { method: "POST", body: formData });
-      if (!response.ok) throw new Error(`语音识别失败：${response.status}`);
-
-      const contentType = response.headers.get("content-type") || "";
-      const payload = contentType.includes("application/json") ? await response.json() : await response.text();
-      const text = typeof payload === "string"
-        ? payload
-        : (payload.text || payload.transcript || payload.result || payload.data?.text || "");
-      handleRecognizedText(text);
-      $("#speechStatus").textContent = "按住说话";
-    };
-
     const stopRecording = event => {
       event?.preventDefault();
       clearTimeout(voiceStopTimer);
@@ -3310,7 +4006,33 @@
 
     const startRecording = async event => {
       event?.preventDefault();
+      collectSettingsFromForm();
+
+      if (settings.asrMode === "keyboard") {
+        fallbackToKeyboardVoice("可使用输入法麦克风输入；也可到设置配置 ASR 服务。");
+        return;
+      }
+
+      if (settings.asrMode === "self" && !settings.selfAsrEndpoint) {
+        toast("请先到设置填写 ASR 端点");
+        navigate("settings");
+        return;
+      }
+
+      if (settings.asrMode === "builtin" && !settings.builtinAsrEndpoint) {
+        toast("内置语音服务尚未配置");
+        navigate("settings");
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        fallbackToKeyboardVoice("当前浏览器不支持录音，可使用输入法麦克风输入");
+        return;
+      }
+
       if (mediaRecorder && mediaRecorder.state === "recording") return;
+
+      const activeSettings = migrateSettings(settings);
       try {
         voiceChunks = [];
         voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -3328,29 +4050,57 @@
           voiceChunks = [];
           stopTracks();
           try {
-            await uploadRecording(blob);
+            $("#speechStatus").textContent = "识别中";
+            const text = await recognizeBlob(blob, activeSettings);
+            handleRecognizedText(text);
+            updateSpeechStatusLabel();
           } catch (err) {
-            console.warn("ASR upload failed", err);
-            fallbackToKeyboardVoice("语音识别服务不可用，可暂用输入法麦克风输入");
+            console.warn("ASR recognition failed", err);
+            if (err.code === "BALANCE_INSUFFICIENT") return;
+            if (activeSettings.asrMode === "self" && !activeSettings.selfAsrEndpoint) {
+              toast("请先到设置填写 ASR 端点");
+              navigate("settings");
+            } else if (activeSettings.asrMode === "builtin" && !activeSettings.builtinAsrEndpoint) {
+              toast("内置语音服务尚未配置");
+              navigate("settings");
+            } else {
+              fallbackToKeyboardVoice(err.message || "语音识别服务不可用，可暂用输入法麦克风输入");
+            }
           }
         };
         mediaRecorder.start();
         voiceBtn.classList.add("pressing");
         $("#speechStatus").textContent = "录音中";
         clearTimeout(voiceStopTimer);
-        voiceStopTimer = setTimeout(() => stopRecording(), VOICE_CONFIG.maxDurationMs);
+        voiceStopTimer = setTimeout(() => stopRecording(), activeSettings.maxDurationMs || VOICE_CONFIG.maxDurationMs);
       } catch (err) {
         console.warn("Recording unavailable", err);
         fallbackToKeyboardVoice("无法打开麦克风，可暂用输入法麦克风输入");
       }
     };
 
-    voiceBtn.addEventListener("mousedown", startRecording);
-    voiceBtn.addEventListener("touchstart", startRecording, { passive: false });
-    voiceBtn.addEventListener("mouseup", stopRecording);
-    voiceBtn.addEventListener("mouseleave", stopRecording);
-    voiceBtn.addEventListener("touchend", stopRecording, { passive: false });
-    voiceBtn.addEventListener("touchcancel", stopRecording, { passive: false });
+    updateSpeechStatusLabel();
+
+    if (window.PointerEvent) {
+      voiceBtn.addEventListener("pointerdown", startRecording);
+      voiceBtn.addEventListener("pointerup", stopRecording);
+      voiceBtn.addEventListener("pointerleave", stopRecording);
+      voiceBtn.addEventListener("pointercancel", stopRecording);
+    } else {
+      voiceBtn.addEventListener("mousedown", startRecording);
+      voiceBtn.addEventListener("touchstart", startRecording, { passive: false });
+      voiceBtn.addEventListener("mouseup", stopRecording);
+      voiceBtn.addEventListener("mouseleave", stopRecording);
+      voiceBtn.addEventListener("touchend", stopRecording, { passive: false });
+      voiceBtn.addEventListener("touchcancel", stopRecording, { passive: false });
+    }
+
+    voiceBtn.addEventListener("click", event => {
+      if (settings.asrMode === "keyboard") {
+        event.preventDefault();
+        fallbackToKeyboardVoice("可使用输入法麦克风输入；也可到设置配置 ASR 服务。");
+      }
+    });
   }
 
   function resetInventoryFilters() {
